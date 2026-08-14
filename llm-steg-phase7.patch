@@ -1,0 +1,1495 @@
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/README.md /mnt/data/llm-steg-work/README.md
+--- /mnt/data/llm-steg-original/README.md	2026-08-14 14:22:42.000000000 +0000
++++ /mnt/data/llm-steg-work/README.md	2026-08-14 17:03:44.421877704 +0000
+@@ -7,8 +7,9 @@
+ 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
+ 同じ鍵で完全に復元するための研究開発プロジェクトです。
+ 
+-**Phase 4: model backend** まで完了しています。payload、暗号、integer coding、model推論を
+-独立に実装・検証します。次はPhase 5の日本語entropy/capacity probeです。
++**Phase 6 mock channel** まで実装済みで、Phase 7の実Qwen end-to-end検証へ進んでいます。
++payload、暗号、integer coding、model推論、stego channelを独立に検証し、`K_stego`による
++keyed candidate mappingとarbitrary-byte transportまで接続しています。
+ 
+ ## 目標
+ 
+@@ -61,6 +62,7 @@
+ - [ADR-002: shared-key and AEAD envelope v1](docs/adr/002-shared-key-aead-v1.md)
+ - [ADR-003: integer Range Coder v1](docs/adr/003-integer-range-coder-v1.md)
+ - [ADR-004: pinned model backend v1](docs/adr/004-pinned-model-backend-v1.md)
++- [ADR-005: keyed cover channel v1](docs/adr/005-keyed-cover-channel-v1.md)
+ - [コントリビューション規約](CONTRIBUTING.md)
+ - [初期メモ](first.md)
+ 
+@@ -144,3 +146,31 @@
+ 
+ debug modelは`Qwen/Qwen3-1.7B`のfull commit SHAへ固定する。weightはignoredな
+ `artifacts/model-cache/`に置き、GitHub Pagesやrepositoryへ含めない。
++
++## Phase 7 local smoke test
++
++Phase 7では、共有master keyから導出した`K_stego`でcandidate intervalを並べ替え、
++任意の暗号化bytesをQwenの生成tokenへ埋め込みます。GPU/model artifactを取得済みなら、
++まず実装済みchannelそのものの容量を測定します。Phase 5Bのraw-LM entropy値と、
++実際のtop-k/temperature/integer-frequency channel値は区別します。
++
++```powershell
++uv run --extra model python scripts/probe_channel_capacity.py --local-files-only --samples 100
++```
++
++続いて実モデルのtransport testを実行します。
++
++```powershell
++$env:LSTEG_RUN_MODEL_TESTS = "1"
++uv run --extra model pytest tests/steg/test_tokenizer_transport.py -v
++```
++
++次にsynthetic secretだけを使うsecure-payload smoke testを実行できます。
++
++```powershell
++uv run steg keygen --output shared.key
++uv run --extra model python scripts/demo_e2e_steg.py --key-file shared.key
++```
++
++この段階ではreceiverへencrypted frameのbyte長を内部的に渡しています。最終CLIでは
++secure frameのheaderから必要長を自己復元する設計へ置き換えます。
+Only in /mnt/data/llm-steg-work/docs/adr: 005-keyed-cover-channel-v1.md
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/docs/decisions.md /mnt/data/llm-steg-work/docs/decisions.md
+--- /mnt/data/llm-steg-original/docs/decisions.md	2026-08-14 14:22:42.000000000 +0000
++++ /mnt/data/llm-steg-work/docs/decisions.md	2026-08-14 16:59:39.001812648 +0000
+@@ -17,6 +17,7 @@
+ | D-008 | XChaCha20-Poly1305 + HKDF-Expand-SHA256 | 24-byte random nonceと用途別subkey |
+ | D-009 | 32-bit integer Range Coder + length frame | floatを排除し有限messageを一意に復元 |
+ | D-010 | Qwen3-1.7B commit pin + same-runtime/device numeric policy | model境界と再現性claimを限定 |
++| D-011 | HMAC-SHA256 keyed candidate permutation + arbitrary-byte cover channel | `K_stego`を使用しつつtoken確率質量を維持し、Phase 7のbyte transportを可能にする |
+ 
+ ## 実装前に決める事項
+ 
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/docs/development.md /mnt/data/llm-steg-work/docs/development.md
+--- /mnt/data/llm-steg-original/docs/development.md	2026-08-14 14:22:42.000000000 +0000
++++ /mnt/data/llm-steg-work/docs/development.md	2026-08-14 17:03:44.421975669 +0000
+@@ -118,3 +118,32 @@
+ 2026-08-14 時点で、system Python 3.12.10 と uv 0.11.32 が利用可能。pyenv は未導入。
+ 本 repository は uv だけでセットアップできるため、global な PATH や Python installation
+ を変更せずに作業を開始できる。
++
++## 8. Phase 6.5 / 7 GPU verification
++
++固定Qwen artifactを取得済みのRTX 4060環境では、まず実装済みfrequency policyの
++容量を直接測定する。raw LM entropyだけをGO/NO-GO判定に使わない。
++
++```powershell
++uv run --extra model python scripts/probe_channel_capacity.py --local-files-only --samples 100
++```
++
++その後、通常CIとは分けて以下を実行する。
++
++```powershell
++$env:LSTEG_RUN_MODEL_TESTS = "1"
++uv run --extra model pytest tests/steg/test_tokenizer_transport.py -v
++```
++
++このtestは、top-k候補のUnicode transport、canonical coded stream、arbitrary-byte
++channelの順に確認する。Qwen3のcontrol token `(151643, 151644, 151645)` はactive alphabetから
++除外する。payloadがsettleする前のEOSによるearly stopは成功扱いにしない。
++
++shared-key secure payloadまで同一processで確認する場合:
++
++```powershell
++uv run steg keygen --output shared.key
++uv run --extra model python scripts/demo_e2e_steg.py --key-file shared.key
++```
++
++`shared.key`、secret plaintext、derived key bytesはbenchmark/logへ出力しない。
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/docs/roadmap.md /mnt/data/llm-steg-work/docs/roadmap.md
+--- /mnt/data/llm-steg-original/docs/roadmap.md	2026-08-14 14:34:08.000000000 +0000
++++ /mnt/data/llm-steg-work/docs/roadmap.md	2026-08-14 17:03:44.421771346 +0000
+@@ -2,7 +2,7 @@
+ 
+ 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
+ 
+-現在地: **Phase 4 完了、Phase 5 着手前**。
++現在地: **Phase 6 mock channel完了、Phase 6.5/7の実モデル検証待ち**。
+ 
+ GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
+ 表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit
+@@ -140,7 +140,7 @@
+ 単なる平均ではなく、各サンプルの $\frac{\sum H_t}{\text{Unicode chars}}$ を直接計算し、p10などの分布を出す。また、`enable_thinking=False` と全語彙(`top_k=0`, `top_p=1.0`) を明示的に設定する。
+ 
+ ### Phase 5B: Prompt / T / model sweep
+-temperatureやプロンプト（日記、雑談、旅行記など）を変更し、自然さを損なわずに `bits/char` が最大化される設定を探索する。
++temperatureやプロンプト（日記、雑談、旅行記など）を変更し、自然さを損なわずに `bits/char` が最大化される設定を探索する。初期のp10=435.3 bitsはraw LM entropyに基づくため、Phase 7で実際のtop-k・temperature・integer quantizationを通したchannel capacityを再測定する。
+ 
+ ### Phase 5C: Secret LM compression
+ 100文字の代表的な秘密文100件について、LLMでlossless圧縮した場合（$- \sum \log_2 P(\text{token})$）の実測bit数を測定し、UTF-8やzlib/brotli等と比較する。数百bit程度に落ちるかを確認する。
+@@ -192,7 +192,19 @@
+ ```
+ 
+ この構造により、秘密文は「意味圧縮（lossless）」されて極小のbit列となり、暗号化を経てカバーテキストの分布に埋め込まれる。
+-Phase 6ではまず 1-bit/token spike で context、tokenizer、prompt、keyed mapping の同期を検証する。Phase 7で上記のDual-LLMパイプラインを結合し、Phase 8で100文字秘密文の500文字カバーへの完全往復試験を行う。
++Phase 6ではmock backend上でcanonical Range streamのhide/extractとtokenizer transportを検証した。Phase 7では`K_stego`によるcontext-bound candidate permutationとarbitrary-byte channelを実LLMへ接続し、短いencrypted payloadの完全往復を確認する。Phase 8でSecret-side LM compressionを含むDual-LLMパイプラインを結合し、100文字秘密文の500文字カバーへの完全往復試験を行う。
++
++### Phase 6/7 channel implementation status
++
++- canonical `CodedBits` のmock hide/extract round-trip: 完了
++- tokenizer text transportのmock test: 完了
++- `K_stego` HMAC-SHA256 candidate permutation: 実装済み
++- arbitrary bytes用 `hide_bytes` / `extract_bytes`: mock test完了
++- EOS/control tokenはconfigから除外し、payload未完了のearly stopは禁止
++- Qwen3実モデルのtext transport / arbitrary-byte smoke test: GPU環境での実行待ち
++- encrypted secure-frameの長さ自己復元: Phase 7後半で実装予定
++
++詳細は`docs/adr/005-keyed-cover-channel-v1.md`を参照する。
+ 
+ ## Phase 9–12 — 品質、再現性、UI、配備
+ 
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/pages/data/phase-results.json /mnt/data/llm-steg-work/pages/data/phase-results.json
+--- /mnt/data/llm-steg-original/pages/data/phase-results.json	2026-08-14 14:34:08.000000000 +0000
++++ /mnt/data/llm-steg-work/pages/data/phase-results.json	2026-08-14 17:03:45.074261638 +0000
+@@ -306,7 +306,7 @@
+       "id": "5B",
+       "name": "Prompt/T/model sweep (Phase 5B)",
+       "status": "completed",
+-      "summary": "架空のニュース記事プロンプトによりp10が435.3 bitsへ大幅改善。",
++      "summary": "raw LM entropyではニュースpromptによりp10が435.3 bitsへ改善。実channel値は再測定待ち。",
+       "exit_criterion": "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
+       "evidence": [],
+       "artifacts": []
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/scripts/demo_e2e_steg.py /mnt/data/llm-steg-work/scripts/demo_e2e_steg.py
+--- /mnt/data/llm-steg-original/scripts/demo_e2e_steg.py	2026-08-14 14:33:39.000000000 +0000
++++ /mnt/data/llm-steg-work/scripts/demo_e2e_steg.py	2026-08-14 17:03:44.421442508 +0000
+@@ -1,143 +1,111 @@
+-"""End-to-End Steganography Spike using Cover LLM Range Coding."""
++"""Phase-7 local E2E smoke test using the pinned Qwen cover model.
++
++This script exercises the real shared-key path:
++
++    synthetic secret -> payload framing -> AEAD -> hide_bytes -> Unicode text
++    -> tokenize -> extract_bytes -> AEAD verify/decrypt -> restored secret
++
++The encrypted frame byte length is still passed explicitly to ``extract_bytes``;
++self-delimiting frame recovery is a later Phase-7 orchestration task.
++"""
++
++from __future__ import annotations
+ 
+ import argparse
+ import sys
+-import zlib
++import time
+ from pathlib import Path
+ 
+-import torch
+-import torch.nn.functional as F
+-
+-from lsteg.coding.frequencies import FrequencyTable
+-from lsteg.coding.range_coder import CodedBits, RangeDecoder, RangeEncoder
+ from lsteg.model import ModelManifest, TransformersBackend
++from lsteg.payload import (
++    decode_secure_text_payload,
++    derive_keys,
++    encode_secure_text_payload,
++    read_master_key,
++)
++from lsteg.steg import SteganographyConfig, extract_bytes, hide_bytes
+ 
+ PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ DEFAULT_MANIFEST = PROJECT_ROOT / "config" / "models" / "qwen3-1.7b-debug.json"
+ DEFAULT_CACHE = PROJECT_ROOT / "artifacts" / "model-cache"
++_QWEN_CONTROL_TOKENS = (151643, 151644, 151645)
++_SYNTHETIC_SECRET = "極秘：今夜の会議は中止、明日10時にカフェで。"  # noqa: RUF001
++_DEFAULT_PROMPT = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
+ 
+ 
+-def get_frequencies(
+-    logits_list: list[float], top_k: int = 256, total: int = 32768
+-) -> tuple[list[int], FrequencyTable]:
+-    """Convert logits to a FrequencyTable of exact size `total` using top_k tokens."""
+-    t_logits = torch.tensor(logits_list, dtype=torch.float32)
+-    probs = F.softmax(t_logits, dim=-1)
+-
+-    # Get top-k probabilities and indices
+-    top_k_probs, top_k_indices = torch.topk(probs, top_k)
+-    top_k_probs = top_k_probs / top_k_probs.sum()
+-
+-    # Assign minimum frequency of 1 to all top-k tokens
+-    freqs = torch.ones(top_k, dtype=torch.int32)
+-    remaining_total = total - top_k
+-
+-    # Proportional allocation
+-    alloc = (top_k_probs * remaining_total).to(torch.int32)
+-    freqs += alloc
+-
+-    # Fix rounding errors by adding remainder to the highest probability token
+-    remainder = total - freqs.sum().item()
+-    freqs[0] += remainder
+-
+-    # Ensure no zero frequencies (already handled by ones) and total is correct
+-    assert freqs.sum().item() == total
+-
+-    return top_k_indices.tolist(), FrequencyTable(freqs.tolist())
+-
+-
+-def hide_bits(backend: TransformersBackend, prompt: str, bits: CodedBits) -> list[int]:
+-    """Hide bits in generated text (Sender)."""
+-    token_ids = backend.tokenize(prompt)
+-    decoder = RangeDecoder(bits)
+-    generated = []
+-
+-    print(f"Hiding {bits.bit_length} bits...")
+-
+-    while True:
+-        if decoder._reader._position > bits.bit_length + 32:
+-            break
+-
+-        try:
+-            logits = backend.next_logits(token_ids)
+-            indices, table = get_frequencies(list(logits))
+-
+-            # Decode one symbol from the secret bits using the LLM distribution
+-            symbol_index = decoder.decode(table)
+-            token_id = indices[symbol_index]
+-
+-            token_ids.append(token_id)
+-            generated.append(token_id)
+-
+-        except Exception as e:
+-            print(f"Error during hiding: {e}")
+-            break
+-
+-    return generated
+-
+-
+-def extract_bits(backend: TransformersBackend, prompt: str, cover_tokens: list[int]) -> CodedBits:
+-    """Extract bits from generated text (Receiver)."""
+-    token_ids = backend.tokenize(prompt)
+-    encoder = RangeEncoder()
+-
+-    print(f"Extracting from {len(cover_tokens)} tokens...")
+-
+-    for token_id in cover_tokens:
+-        logits = backend.next_logits(token_ids)
+-        indices, table = get_frequencies(list(logits))
+-
+-        if token_id not in indices:
+-            raise RuntimeError("Cover token not in top-k! Cannot extract.")
+-
+-        symbol_index = indices.index(token_id)
+-        encoder.encode(table, symbol_index)
+-        token_ids.append(token_id)
+-
+-    return encoder.finish()
+-
+-
+-def main():  # type: ignore
+-    parser = argparse.ArgumentParser()
++def build_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--key-file", type=Path, required=True)
+     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+-    args = parser.parse_args()
+-
+-    # 1. Setup
+-    manifest = ModelManifest.from_path(args.manifest)
+-    backend = TransformersBackend.load(manifest, cache_dir=DEFAULT_CACHE, local_files_only=True)
++    parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
++    parser.add_argument("--top-k", type=int, default=64)
++    parser.add_argument("--temperature", type=float, default=1.0)
++    parser.add_argument("--max-tokens", type=int, default=1024)
++    return parser
+ 
+-    secret_text = "極秘：今夜の会議は中止、明日10時にカフェで。"  # noqa: RUF001
+-    print(f"Secret: {secret_text}")
+ 
+-    # 2. Mock Secret LLM Compression with zlib for the spike
+-    compressed = zlib.compress(secret_text.encode("utf-8"), level=9)
+-    bits = CodedBits(compressed, len(compressed) * 8)
+-    print(f"Compressed size: {bits.bit_length} bits")
+-
+-    # 3. Hide
+-    prompt = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
+-    cover_tokens = hide_bits(backend, prompt, bits)
+-    cover_text = backend.detokenize(cover_tokens)
+-    print(f"\n--- Cover Text ---\n{prompt}{cover_text}\n------------------\n")
+-
+-    # 4. Extract
+-    extracted_bits = extract_bits(backend, prompt, cover_tokens)
+-
+-    # The extracted bits might have extra 0s padded at the end due to RangeDecoder consuming more bits.  # noqa: E501
+-    # In real implementation we use a termination symbol or length header.
+-    # For spike, we just truncate to the original bytes.
+-    extracted_bytes = extracted_bits.data[: len(compressed)]
+-
+-    try:
+-        recovered = zlib.decompress(extracted_bytes).decode("utf-8")
+-        print(f"Recovered: {recovered}")
+-        if recovered == secret_text:
+-            print("SUCCESS: Secret perfectly recovered!")
+-        else:
+-            print("FAILED: Mismatch.")
+-    except Exception as e:
+-        print(f"FAILED to decompress: {e}")
++def main() -> int:
++    args = build_parser().parse_args()
++    master_key = read_master_key(args.key_file)
++    stego_key = derive_keys(master_key).steganography
++    manifest = ModelManifest.from_path(args.manifest)
++    backend = TransformersBackend.load(
++        manifest,
++        cache_dir=args.cache_dir,
++        local_files_only=True,
++    )
++    config = SteganographyConfig(
++        top_k=args.top_k,
++        temperature=args.temperature,
++        excluded_token_ids=_QWEN_CONTROL_TOKENS,
++    )
++
++    encoded = encode_secure_text_payload(_SYNTHETIC_SECRET, master_key)
++
++    started = time.perf_counter()
++    cover_ids = hide_bytes(
++        backend,
++        _DEFAULT_PROMPT,
++        encoded.frame,
++        stego_key=stego_key,
++        config=config,
++        max_tokens=args.max_tokens,
++    )
++    encode_seconds = time.perf_counter() - started
++    cover_text = backend.detokenize(cover_ids)
++
++    # Simulate transport through a plain Unicode string.  Token identity must
++    # survive this boundary or receiver-side logits diverge immediately.
++    received_ids = backend.tokenize(cover_text)
++    if received_ids != cover_ids:
++        print("FAILED: tokenizer transport changed generated token IDs", file=sys.stderr)
++        return 1
++
++    started = time.perf_counter()
++    recovered_frame = extract_bytes(
++        backend,
++        _DEFAULT_PROMPT,
++        received_ids,
++        len(encoded.frame),
++        stego_key=stego_key,
++        config=config,
++    )
++    recovered_secret = decode_secure_text_payload(recovered_frame, master_key)
++    decode_seconds = time.perf_counter() - started
++
++    if recovered_secret != _SYNTHETIC_SECRET:
++        print("FAILED: recovered secret differs from the synthetic input", file=sys.stderr)
++        return 1
++
++    print("SUCCESS: Phase-7 secure payload round-trip completed")
++    print(f"encrypted payload: {len(encoded.frame) * 8} bits")
++    print(f"cover: {len(cover_text)} Unicode code points / {len(cover_ids)} tokens")
++    print(f"encode: {encode_seconds:.2f} s")
++    print(f"decode: {decode_seconds:.2f} s")
++    print("--- cover text ---")
++    print(cover_text)
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+-    sys.exit(main())  # type: ignore
++    raise SystemExit(main())
+Only in /mnt/data/llm-steg-work/scripts: probe_channel_capacity.py
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/src/lsteg/coding/range_coder.py /mnt/data/llm-steg-work/src/lsteg/coding/range_coder.py
+--- /mnt/data/llm-steg-original/src/lsteg/coding/range_coder.py	2026-08-14 10:57:40.000000000 +0000
++++ /mnt/data/llm-steg-work/src/lsteg/coding/range_coder.py	2026-08-14 16:56:11.351871973 +0000
+@@ -123,6 +123,11 @@
+         for _ in range(STATE_BITS):
+             self._code = (self._code << 1) | self._reader.read_or_zero()
+ 
++    @property
++    def input_bits_read(self) -> int:
++        """Return source-bit read position, including zero lookahead past the payload."""
++        return self._reader.position
++
+     def decode(self, table: FrequencyTable) -> int:
+         """Decode one symbol with the same frequency table used by the encoder."""
+         interval_size = self._high - self._low + 1
+@@ -195,6 +200,11 @@
+         self._coded = coded
+         self._position = 0
+ 
++    @property
++    def position(self) -> int:
++        """Return the number of source/lookahead bits requested so far."""
++        return self._position
++
+     def read_or_zero(self) -> int:
+         if self._position >= self._coded.bit_length:
+             self._position += 1
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/src/lsteg/reporting/phase_results.py /mnt/data/llm-steg-work/src/lsteg/reporting/phase_results.py
+--- /mnt/data/llm-steg-original/src/lsteg/reporting/phase_results.py	2026-08-14 14:34:08.000000000 +0000
++++ /mnt/data/llm-steg-work/src/lsteg/reporting/phase_results.py	2026-08-14 17:03:44.421628835 +0000
+@@ -224,7 +224,7 @@
+             "5B",
+             "Prompt/T/model sweep (Phase 5B)",
+             "completed",
+-            "架空のニュース記事プロンプトによりp10が435.3 bitsへ大幅改善。",
++            "raw LM entropyではニュースpromptによりp10が435.3 bitsへ改善。実channel値は再測定待ち。",
+             "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
+         ),
+         _phase(
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/src/lsteg/steg/__init__.py /mnt/data/llm-steg-work/src/lsteg/steg/__init__.py
+--- /mnt/data/llm-steg-original/src/lsteg/steg/__init__.py	2026-08-14 14:23:13.000000000 +0000
++++ /mnt/data/llm-steg-work/src/lsteg/steg/__init__.py	2026-08-14 17:02:40.209893884 +0000
+@@ -1,11 +1,32 @@
+ """Steganographic encoding and decoding using an LLM as the cover distribution."""
+ 
+-from lsteg.steg.engine import SteganographyConfig, extract, hide
+-from lsteg.steg.frequencies import logits_to_frequency_table
++from lsteg.steg.engine import (
++    CoverTokenError,
++    InsufficientCoverCapacityError,
++    SteganographyConfig,
++    extract,
++    extract_bytes,
++    hide,
++    hide_bytes,
++)
++from lsteg.steg.frequencies import frequency_table_entropy, logits_to_frequency_table
++from lsteg.steg.mapping import (
++    CANDIDATE_MAPPING_VERSION,
++    STEGANOGRAPHY_KEY_SIZE,
++    keyed_candidate_permutation,
++)
+ 
+ __all__ = [
++    "CANDIDATE_MAPPING_VERSION",
++    "STEGANOGRAPHY_KEY_SIZE",
++    "CoverTokenError",
++    "InsufficientCoverCapacityError",
+     "SteganographyConfig",
+     "extract",
++    "extract_bytes",
+     "hide",
++    "hide_bytes",
++    "frequency_table_entropy",
++    "keyed_candidate_permutation",
+     "logits_to_frequency_table",
+ ]
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/src/lsteg/steg/engine.py /mnt/data/llm-steg-work/src/lsteg/steg/engine.py
+--- /mnt/data/llm-steg-original/src/lsteg/steg/engine.py	2026-08-14 14:41:51.000000000 +0000
++++ /mnt/data/llm-steg-work/src/lsteg/steg/engine.py	2026-08-14 17:02:50.680813122 +0000
+@@ -1,43 +1,51 @@
+ """Steganographic hide/extract engine.
+ 
+-Glossary
+---------
+-* hide (sender side):  embed coded bits into a sequence of LLM-generated tokens.
+-* extract (receiver side): recover coded bits from a token sequence.
+-
+-Both sides must use exactly the same:
+-  - backend (model, tokenizer, revision)
+-  - prompt (context prefix)
+-  - SteganographyConfig (top_k, total)
+-
+-The engine itself is model-neutral; it uses only the LanguageModelBackend
+-Protocol from lsteg.model.interface.
++The cover model supplies a next-token distribution.  ``K_stego`` deterministically
++permutes token/frequency pairs at every position, and the integer Range Coder
++maps payload bits into those secret interval positions.
++
++Two channel APIs are provided:
++
++``hide`` / ``extract``
++    Low-level canonical ``CodedBits`` transport retained for coder tests.
++
++``hide_bytes`` / ``extract_bytes``
++    Phase-7 byte transport for arbitrary encrypted payload bytes.  The receiver
++    currently needs the payload byte length; self-delimiting secure-frame
++    extraction is a later orchestration step.
+ """
+ 
+ from __future__ import annotations
+ 
++import math
+ from collections.abc import Sequence
+ from dataclasses import dataclass
+ 
+-from lsteg.coding.range_coder import CodedBits, RangeDecoder, RangeEncoder
++from lsteg.coding.frequencies import MAX_FREQUENCY_TOTAL, FrequencyTable
++from lsteg.coding.range_coder import STATE_BITS, CodedBits, RangeDecoder, RangeEncoder
+ from lsteg.model.interface import LanguageModelBackend
+ from lsteg.steg.frequencies import DEFAULT_TOP_K, FREQUENCY_TOTAL, logits_to_frequency_table
++from lsteg.steg.mapping import keyed_candidate_permutation
+ 
+ 
+ class CoverTokenError(RuntimeError):
+-    """A cover token is not in the active top-k alphabet."""
++    """A received cover token is not in the active candidate alphabet."""
++
++
++class InsufficientCoverCapacityError(RuntimeError):
++    """The configured token budget ended before the payload was fully embedded."""
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+ class SteganographyConfig:
+-    """Shared parameters that both sender and receiver must agree on."""
++    """Shared parameters that sender and receiver must reproduce exactly."""
+ 
+     top_k: int = DEFAULT_TOP_K
+     frequency_total: int = FREQUENCY_TOTAL
++    temperature: float = 1.0
++    excluded_token_ids: tuple[int, ...] = ()
+ 
+     def __post_init__(self) -> None:
+-        from lsteg.coding.frequencies import MAX_FREQUENCY_TOTAL
+-
+         if not (1 <= self.top_k <= self.frequency_total):
+             raise ValueError(
+                 f"top_k must satisfy 1 <= top_k <= frequency_total, "
+@@ -47,6 +55,22 @@
+             raise ValueError(
+                 f"frequency_total must be <= {MAX_FREQUENCY_TOTAL}, got {self.frequency_total}"
+             )
++        if isinstance(self.temperature, bool) or not isinstance(self.temperature, (int, float)):
++            raise TypeError("temperature must be a number")
++        temperature = float(self.temperature)
++        if not math.isfinite(temperature) or temperature <= 0.0:
++            raise ValueError("temperature must be finite and greater than zero")
++        object.__setattr__(self, "temperature", temperature)
++        normalized: list[int] = []
++        for token_id in self.excluded_token_ids:
++            if isinstance(token_id, bool) or not isinstance(token_id, int):
++                raise TypeError("excluded token IDs must be integers")
++            if token_id < 0:
++                raise ValueError("excluded token IDs must not be negative")
++            normalized.append(token_id)
++        if len(set(normalized)) != len(normalized):
++            raise ValueError("excluded token IDs must not contain duplicates")
++        object.__setattr__(self, "excluded_token_ids", tuple(normalized))
+ 
+ 
+ def hide(
+@@ -54,61 +78,38 @@
+     prompt: str,
+     coded_bits: CodedBits,
+     *,
++    stego_key: bytes,
+     config: SteganographyConfig | None = None,
+     max_tokens: int = 4096,
+ ) -> list[int]:
+-    """Embed ``coded_bits`` into a token sequence generated from ``prompt``.
+-
+-    Parameters
+-    ----------
+-    backend:
+-        LLM backend satisfying the LanguageModelBackend protocol.
+-    prompt:
+-        Cover text prefix; the model conditions all generation on this.
+-    coded_bits:
+-        The secret payload already encoded as a CodedBits object.
+-    config:
+-        Steganographic parameters; must match what the receiver uses.
+-    max_tokens:
+-        Hard upper bound on generated tokens to prevent infinite loops.
+-
+-    Returns
+-    -------
+-    list[int]
+-        The generated cover token IDs (not including the prompt tokens).
+-    """
++    """Embed a canonical ``CodedBits`` stream into generated cover token IDs."""
++    if coded_bits.bit_length == 0:
++        return []
++    _validate_max_tokens(max_tokens)
+     cfg = config or SteganographyConfig()
+     token_ids = backend.tokenize(prompt)
+     decoder = RangeDecoder(coded_bits)
+-
+     cover_tokens: list[int] = []
+-    needed_bits = coded_bits.bit_length + 32  # 32-bit Range Decoder lookahead
++    needed_bits = coded_bits.bit_length + STATE_BITS
+ 
+-    for _ in range(max_tokens):
+-        logits = backend.next_logits(token_ids)
+-        top_ids, table = logits_to_frequency_table(
+-            list(logits),
+-            top_k=cfg.top_k,
+-            total=cfg.frequency_total,
++    for position in range(max_tokens):
++        top_ids, table = _position_table(
++            backend,
++            token_ids,
++            position=position,
++            stego_key=stego_key,
++            config=cfg,
+         )
+-
+         symbol_index = decoder.decode(table)
+         token_id = top_ids[symbol_index]
+-
+         token_ids.append(token_id)
+         cover_tokens.append(token_id)
++        if decoder.input_bits_read >= needed_bits:
++            return cover_tokens
+ 
+-        # Stop once the decoder has consumed all meaningful bits plus the
+-        # 32-bit lookahead that the Range Decoder needs to initialise.
+-        bits_consumed = decoder._reader._position  # noqa: SLF001
+-        if bits_consumed >= needed_bits:
+-            break
+-
+-        # Also stop on EOS tokens (Qwen3: 151643=<|endoftext|>, 151645=<|im_end|>)
+-        if token_id in (151643, 151645):
+-            break
+-
+-    return cover_tokens
++    raise InsufficientCoverCapacityError(
++        f"coded stream did not finish within max_tokens={max_tokens}"
++    )
+ 
+ 
+ def extract(
+@@ -116,54 +117,172 @@
+     prompt: str,
+     cover_tokens: Sequence[int],
+     *,
++    stego_key: bytes,
+     config: SteganographyConfig | None = None,
+ ) -> CodedBits:
+-    """Recover the coded bits from ``cover_tokens`` generated by :func:`hide`.
++    """Recover a canonical coded-bit representation from received cover tokens."""
++    cfg = config or SteganographyConfig()
++    token_ids = backend.tokenize(prompt)
++    encoder = RangeEncoder()
++
++    for position, token_id in enumerate(cover_tokens):
++        top_ids, table = _position_table(
++            backend,
++            token_ids,
++            position=position,
++            stego_key=stego_key,
++            config=cfg,
++        )
++        symbol_index = _symbol_index(top_ids, token_id, position, cfg.top_k)
++        encoder.encode(table, symbol_index)
++        token_ids.append(token_id)
++
++    return encoder.finish()
++
++
++def hide_bytes(
++    backend: LanguageModelBackend,
++    prompt: str,
++    payload: bytes,
++    *,
++    stego_key: bytes,
++    config: SteganographyConfig | None = None,
++    max_tokens: int = 4096,
++) -> list[int]:
++    """Embed arbitrary payload bytes using the LLM's dynamic frequency tables.
+ 
+-    Parameters
+-    ----------
+-    backend:
+-        Must be the same model, revision, and tokenizer as used when hiding.
+-    prompt:
+-        Must be the same prompt string as used when hiding.
+-    cover_tokens:
+-        The token IDs returned by :func:`hide` (not including prompt tokens).
+-    config:
+-        Must be the same config as used when hiding.
+-
+-    Returns
+-    -------
+-    CodedBits
+-        The recovered bits.  The caller is responsible for decoding the payload
+-        (decompress, decrypt, unframe) using the appropriate codec layer.
+-
+-    Raises
+-    ------
+-    CoverTokenError
+-        If a cover token is not found in the top-k alphabet at some position.
+-        This indicates a mismatch between hide/extract parameters.
++    A single termination bit is appended to the arithmetic-decoder input.  A
++    mirror encoder tracks how many payload-prefix bits are irrevocably settled;
++    generation stops as soon as all payload bits are recoverable.
+     """
++    if not isinstance(payload, bytes):
++        raise TypeError("payload must be bytes")
++    if not payload:
++        return []
++    _validate_max_tokens(max_tokens)
+     cfg = config or SteganographyConfig()
++    target_bits = len(payload) * 8
++    terminated = CodedBits(payload + b"\x80", target_bits + 1)
++    decoder = RangeDecoder(terminated)
++    mirror = RangeEncoder()
+     token_ids = backend.tokenize(prompt)
+-    encoder = RangeEncoder()
++    cover_tokens: list[int] = []
+ 
+-    for token_id in cover_tokens:
+-        logits = backend.next_logits(token_ids)
+-        top_ids, table = logits_to_frequency_table(
+-            list(logits),
+-            top_k=cfg.top_k,
+-            total=cfg.frequency_total,
++    for position in range(max_tokens):
++        top_ids, table = _position_table(
++            backend,
++            token_ids,
++            position=position,
++            stego_key=stego_key,
++            config=cfg,
+         )
++        symbol_index = decoder.decode(table)
++        mirror.encode(table, symbol_index)
++        token_id = top_ids[symbol_index]
++        token_ids.append(token_id)
++        cover_tokens.append(token_id)
+ 
+-        if token_id not in top_ids:
+-            raise CoverTokenError(
+-                f"Cover token {token_id!r} is not in the top-{cfg.top_k} alphabet "
+-                f"at position {len(token_ids) - len(backend.tokenize(prompt))}. "
+-                "This may indicate a parameter mismatch between hide() and extract()."
+-            )
++        if mirror.settled_bit_length >= target_bits:
++            recovered_prefix = mirror.settled_bits().data[: len(payload)]
++            if recovered_prefix != payload:  # pragma: no cover - coder symmetry invariant
++                raise RuntimeError("range mapping failed to preserve the payload prefix")
++            return cover_tokens
++
++    raise InsufficientCoverCapacityError(
++        f"payload did not settle within max_tokens={max_tokens}"
++    )
++
++
++def extract_bytes(
++    backend: LanguageModelBackend,
++    prompt: str,
++    cover_tokens: Sequence[int],
++    payload_size: int,
++    *,
++    stego_key: bytes,
++    config: SteganographyConfig | None = None,
++) -> bytes:
++    """Recover an exact payload prefix from cover tokens.
++
++    ``payload_size`` is intentionally explicit in this Phase-7 primitive.  A
++    higher-level secure-frame decoder can later infer it from authenticated
++    framing once enough prefix bytes have settled.
++    """
++    if isinstance(payload_size, bool) or not isinstance(payload_size, int):
++        raise TypeError("payload_size must be int")
++    if payload_size < 0:
++        raise ValueError("payload_size must not be negative")
++    if payload_size == 0:
++        if cover_tokens:
++            raise ValueError("empty payload must use an empty cover token sequence")
++        return b""
++
++    cfg = config or SteganographyConfig()
++    required_bits = payload_size * 8
++    token_ids = backend.tokenize(prompt)
++    encoder = RangeEncoder()
+ 
+-        symbol_index = top_ids.index(token_id)
++    for position, token_id in enumerate(cover_tokens):
++        top_ids, table = _position_table(
++            backend,
++            token_ids,
++            position=position,
++            stego_key=stego_key,
++            config=cfg,
++        )
++        symbol_index = _symbol_index(top_ids, token_id, position, cfg.top_k)
+         encoder.encode(table, symbol_index)
+         token_ids.append(token_id)
++        if encoder.settled_bit_length >= required_bits:
++            return encoder.settled_bits().data[:payload_size]
+ 
+-    return encoder.finish()
++    raise InsufficientCoverCapacityError(
++        f"cover settled {encoder.settled_bit_length} of {required_bits} required bits"
++    )
++
++
++def _position_table(
++    backend: LanguageModelBackend,
++    context_token_ids: Sequence[int],
++    *,
++    position: int,
++    stego_key: bytes,
++    config: SteganographyConfig,
++) -> tuple[list[int], FrequencyTable]:
++    logits = backend.next_logits(context_token_ids)
++    top_ids, table = logits_to_frequency_table(
++        logits,
++        top_k=config.top_k,
++        total=config.frequency_total,
++        temperature=config.temperature,
++        excluded_token_ids=config.excluded_token_ids,
++    )
++    return keyed_candidate_permutation(
++        top_ids,
++        table,
++        stego_key=stego_key,
++        position=position,
++        context_token_ids=context_token_ids,
++    )
++
++
++def _symbol_index(
++    top_ids: Sequence[int],
++    token_id: int,
++    position: int,
++    top_k: int,
++) -> int:
++    try:
++        return top_ids.index(token_id)
++    except ValueError as error:
++        raise CoverTokenError(
++            f"cover token {token_id!r} is not in the top-{top_k} alphabet "
++            f"at cover position {position}; sender/receiver artifacts or config differ"
++        ) from error
++
++
++def _validate_max_tokens(max_tokens: int) -> None:
++    if isinstance(max_tokens, bool) or not isinstance(max_tokens, int):
++        raise TypeError("max_tokens must be int")
++    if max_tokens <= 0:
++        raise ValueError("max_tokens must be positive")
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/src/lsteg/steg/frequencies.py /mnt/data/llm-steg-work/src/lsteg/steg/frequencies.py
+--- /mnt/data/llm-steg-original/src/lsteg/steg/frequencies.py	2026-08-14 14:34:45.000000000 +0000
++++ /mnt/data/llm-steg-work/src/lsteg/steg/frequencies.py	2026-08-14 17:02:40.209694027 +0000
+@@ -33,6 +33,8 @@
+     *,
+     top_k: int = DEFAULT_TOP_K,
+     total: int = FREQUENCY_TOTAL,
++    temperature: float = 1.0,
++    excluded_token_ids: Sequence[int] = (),
+ ) -> tuple[list[int], FrequencyTable]:
+     """Convert raw logits into a (token_ids, FrequencyTable) pair.
+ 
+@@ -45,6 +47,11 @@
+         Must satisfy 1 <= top_k <= total.
+     total:
+         Integer frequency budget.  Must equal MAX_FREQUENCY_TOTAL or less.
++    temperature:
++        Positive logit temperature applied before softmax.
++    excluded_token_ids:
++        Token IDs that must never appear in the active alphabet (for example,
++        model-specific EOS/control tokens). IDs outside the vocabulary are ignored.
+ 
+     Returns
+     -------
+@@ -58,20 +65,41 @@
+         raise ValueError(f"top_k must satisfy 1 <= top_k <= total, got {top_k}, {total}")
+     if total > MAX_FREQUENCY_TOTAL:
+         raise ValueError(f"total must be <= {MAX_FREQUENCY_TOTAL}, got {total}")
+-    if len(logits) < top_k:
+-        raise ValueError(f"vocabulary size {len(logits)} is smaller than top_k {top_k}")
++    if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
++        raise TypeError("temperature must be a number")
++    temperature_value = float(temperature)
++    if not math.isfinite(temperature_value) or temperature_value <= 0.0:
++        raise ValueError("temperature must be finite and greater than zero")
++    excluded: set[int] = set()
++    for token_id in excluded_token_ids:
++        if isinstance(token_id, bool) or not isinstance(token_id, int):
++            raise TypeError("excluded token IDs must be integers")
++        if token_id < 0:
++            raise ValueError("excluded token IDs must not be negative")
++        if token_id < len(logits):
++            excluded.add(token_id)
++    available = len(logits) - len(excluded)
++    if available < top_k:
++        raise ValueError(
++            f"available vocabulary size {available} is smaller than top_k {top_k}"
++        )
+ 
+     # --- softmax in float64 for numerical stability ---------------------------
+     # We deliberately avoid torch here so this module has no GPU dependency at
+     # runtime; callers already computed logits via the backend.
+-    max_logit = max(logits)
+-    exp_values = [math.exp(v - max_logit) for v in logits]
++    scaled_logits = [value / temperature_value for value in logits]
++    max_logit = max(scaled_logits)
++    exp_values = [math.exp(value - max_logit) for value in scaled_logits]
+     exp_sum = sum(exp_values)
+     probs = [v / exp_sum for v in exp_values]
+ 
+     # --- select top-k by descending probability, ascending token ID -----------
+     indexed = sorted(
+-        enumerate(probs),
++        (
++            (token_id, probability)
++            for token_id, probability in enumerate(probs)
++            if token_id not in excluded
++        ),
+         key=lambda item: (-item[1], item[0]),
+     )[:top_k]
+     top_ids = [idx for idx, _ in indexed]
+@@ -103,3 +131,15 @@
+     assert sum(frequencies) == total, "frequency allocation invariant violated"
+ 
+     return top_ids, FrequencyTable(frequencies)
++
++
++def frequency_table_entropy(table: FrequencyTable) -> float:
++    """Return Shannon entropy in bits of an integer frequency table."""
++    total = table.total
++    entropy = 0.0
++    for frequency in table.frequencies:
++        if frequency == 0:
++            continue
++        probability = frequency / total
++        entropy -= probability * math.log2(probability)
++    return entropy
+Only in /mnt/data/llm-steg-work/src/lsteg/steg: mapping.py
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/tests/steg/test_engine.py /mnt/data/llm-steg-work/tests/steg/test_engine.py
+--- /mnt/data/llm-steg-original/tests/steg/test_engine.py	2026-08-14 14:40:28.000000000 +0000
++++ /mnt/data/llm-steg-work/tests/steg/test_engine.py	2026-08-14 17:04:55.532482954 +0000
+@@ -36,7 +36,15 @@
+ from lsteg.coding.range_coder import CodedBits, RangeDecoder, RangeEncoder
+ from lsteg.model.interface import Logits, RuntimeFingerprint
+ from lsteg.model.manifest import ModelManifest
+-from lsteg.steg.engine import CoverTokenError, SteganographyConfig, extract, hide
++from lsteg.steg.engine import (
++    CoverTokenError,
++    InsufficientCoverCapacityError,
++    SteganographyConfig,
++    extract,
++    extract_bytes,
++    hide,
++    hide_bytes,
++)
+ 
+ # ---------------------------------------------------------------------------
+ # Minimal in-process mock backend
+@@ -44,6 +52,8 @@
+ 
+ _VOCAB_SIZE = 1000
+ 
++_STEGO_KEY = bytes(range(32))
++
+ 
+ @dataclass
+ class _MockBackend:
+@@ -129,10 +139,10 @@
+         payload = _make_payload(n_bytes, seed=seed)
+         coded = _encode_bytes(payload)
+ 
+-        cover_tokens = hide(backend, "hello", coded, config=cfg)
++        cover_tokens = hide(backend, "hello", coded, stego_key=_STEGO_KEY, config=cfg)
+         assert len(cover_tokens) > 0, "hide must produce at least one token"
+ 
+-        recovered_coded = extract(backend, "hello", cover_tokens, config=cfg)
++        recovered_coded = extract(backend, "hello", cover_tokens, stego_key=_STEGO_KEY, config=cfg)
+         recovered_payload = _decode_bytes(recovered_coded, n_bytes)
+         assert recovered_payload == payload, (
+             f"payload mismatch for {n_bytes} bytes: "
+@@ -194,32 +204,36 @@
+         cfg = SteganographyConfig(top_k=64)
+         payload = b"\x00" * 4
+         coded = _encode_bytes(payload)
+-        cover = hide(backend, "hello", coded, config=cfg)
+-        assert _decode_bytes(extract(backend, "hello", cover, config=cfg), 4) == payload
++        cover = hide(backend, "hello", coded, stego_key=_STEGO_KEY, config=cfg)
++        recovered = extract(backend, "hello", cover, stego_key=_STEGO_KEY, config=cfg)
++        assert _decode_bytes(recovered, 4) == payload
+ 
+     def test_all_0xff_bytes(self) -> None:
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=64)
+         payload = b"\xff" * 4
+         coded = _encode_bytes(payload)
+-        cover = hide(backend, "hello", coded, config=cfg)
+-        assert _decode_bytes(extract(backend, "hello", cover, config=cfg), 4) == payload
++        cover = hide(backend, "hello", coded, stego_key=_STEGO_KEY, config=cfg)
++        recovered = extract(backend, "hello", cover, stego_key=_STEGO_KEY, config=cfg)
++        assert _decode_bytes(recovered, 4) == payload
+ 
+     def test_trailing_zeros(self) -> None:
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=64)
+         payload = b"\xab\xcd\x00\x00"
+         coded = _encode_bytes(payload)
+-        cover = hide(backend, "hello", coded, config=cfg)
+-        assert _decode_bytes(extract(backend, "hello", cover, config=cfg), 4) == payload
++        cover = hide(backend, "hello", coded, stego_key=_STEGO_KEY, config=cfg)
++        recovered = extract(backend, "hello", cover, stego_key=_STEGO_KEY, config=cfg)
++        assert _decode_bytes(recovered, 4) == payload
+ 
+     def test_trailing_ones(self) -> None:
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=64)
+         payload = b"\x00\x00\xff\xff"
+         coded = _encode_bytes(payload)
+-        cover = hide(backend, "hello", coded, config=cfg)
+-        assert _decode_bytes(extract(backend, "hello", cover, config=cfg), 4) == payload
++        cover = hide(backend, "hello", coded, stego_key=_STEGO_KEY, config=cfg)
++        recovered = extract(backend, "hello", cover, stego_key=_STEGO_KEY, config=cfg)
++        assert _decode_bytes(recovered, 4) == payload
+ 
+     # --- determinism and property tests -------------------------------------
+ 
+@@ -227,16 +241,16 @@
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=64)
+         coded = _encode_bytes(_make_payload(8))
+-        tokens_1 = hide(backend, "deterministic", coded, config=cfg)
+-        tokens_2 = hide(backend, "deterministic", coded, config=cfg)
++        tokens_1 = hide(backend, "deterministic", coded, stego_key=_STEGO_KEY, config=cfg)
++        tokens_2 = hide(backend, "deterministic", coded, stego_key=_STEGO_KEY, config=cfg)
+         assert tokens_1 == tokens_2
+ 
+     def test_different_prompts_produce_different_cover(self) -> None:
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=64)
+         coded = _encode_bytes(_make_payload(8))
+-        tokens_a = hide(backend, "prompt_a", coded, config=cfg)
+-        tokens_b = hide(backend, "prompt_b", coded, config=cfg)
++        tokens_a = hide(backend, "prompt_a", coded, stego_key=_STEGO_KEY, config=cfg)
++        tokens_b = hide(backend, "prompt_b", coded, stego_key=_STEGO_KEY, config=cfg)
+         assert tokens_a != tokens_b
+ 
+     def test_repeated_seeds(self) -> None:
+@@ -257,17 +271,144 @@
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=4)
+         coded = _encode_bytes(b"\xab")
+-        cover_tokens = hide(backend, "test", coded, config=cfg)
++        cover_tokens = hide(backend, "test", coded, stego_key=_STEGO_KEY, config=cfg)
+         tampered = [_VOCAB_SIZE - 1, *cover_tokens[1:]]
+         with pytest.raises(CoverTokenError):
+-            extract(backend, "test", tampered, config=cfg)
++            extract(backend, "test", tampered, stego_key=_STEGO_KEY, config=cfg)
+ 
+     def test_config_mismatch_raises(self) -> None:
+         backend = _MockBackend()
+         coded = _encode_bytes(b"\xab\xcd")
+-        cover_tokens = hide(backend, "test", coded, config=SteganographyConfig(top_k=8))
++        cover_tokens = hide(
++            backend,
++            "test",
++            coded,
++            stego_key=_STEGO_KEY,
++            config=SteganographyConfig(top_k=8),
++        )
+         with pytest.raises(CoverTokenError):
+-            extract(backend, "test", cover_tokens, config=SteganographyConfig(top_k=4))
++            extract(
++                backend,
++                "test",
++                cover_tokens,
++                stego_key=_STEGO_KEY,
++                config=SteganographyConfig(top_k=4),
++            )
++
++
++# ---------------------------------------------------------------------------
++# Arbitrary byte transport (Phase 7 channel primitive)
++# ---------------------------------------------------------------------------
++
++
++class TestByteChannelRoundTrip:
++    def test_short_payload(self) -> None:
++        backend = _MockBackend()
++        cfg = SteganographyConfig(top_k=64)
++        payload = b"\x00\x42\xff\x10"
++        cover = hide_bytes(
++            backend,
++            "hello",
++            payload,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )
++        recovered = extract_bytes(
++            backend,
++            "hello",
++            cover,
++            len(payload),
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )
++        assert recovered == payload
++
++    def test_random_payloads(self) -> None:
++        backend = _MockBackend()
++        cfg = SteganographyConfig(top_k=64)
++        rng = random.Random(20260815)
++        for size in (1, 2, 3, 7, 8, 9, 16, 32, 50):
++            payload = bytes(rng.getrandbits(8) for _ in range(size))
++            cover = hide_bytes(
++                backend,
++                "transport",
++                payload,
++                stego_key=_STEGO_KEY,
++                config=cfg,
++            )
++            assert (
++                extract_bytes(
++                    backend,
++                    "transport",
++                    cover,
++                    size,
++                    stego_key=_STEGO_KEY,
++                    config=cfg,
++                )
++                == payload
++            )
++
++    def test_empty_payload(self) -> None:
++        backend = _MockBackend()
++        assert hide_bytes(backend, "hello", b"", stego_key=_STEGO_KEY) == []
++        assert extract_bytes(backend, "hello", [], 0, stego_key=_STEGO_KEY) == b""
++
++    def test_key_changes_cover_and_wrong_key_changes_payload(self) -> None:
++        backend = _MockBackend()
++        config = SteganographyConfig(top_k=64)
++        payload = b"key separation regression payload"
++        other_key = bytes(reversed(range(32)))
++        cover = hide_bytes(
++            backend,
++            "hello",
++            payload,
++            stego_key=_STEGO_KEY,
++            config=config,
++        )
++        other_cover = hide_bytes(
++            backend,
++            "hello",
++            payload,
++            stego_key=other_key,
++            config=config,
++        )
++        assert other_cover != cover
++
++        wrong = extract_bytes(
++            backend,
++            "hello",
++            cover,
++            len(payload),
++            stego_key=other_key,
++            config=config,
++        )
++        assert wrong != payload
++
++    def test_too_small_token_budget_fails_closed(self) -> None:
++        backend = _MockBackend()
++        with pytest.raises(InsufficientCoverCapacityError):
++            hide_bytes(
++                backend,
++                "hello",
++                b"payload that cannot fit",
++                stego_key=_STEGO_KEY,
++                config=SteganographyConfig(top_k=2),
++                max_tokens=1,
++            )
++
++    def test_excluded_tokens_never_appear(self) -> None:
++        backend = _MockBackend()
++        # Exclude a broad set so the property is exercised repeatedly.
++        excluded = tuple(range(100))
++        cfg = SteganographyConfig(top_k=64, excluded_token_ids=excluded)
++        cover = hide_bytes(
++            backend,
++            "hello",
++            b"abcdefgh",
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )
++        assert not set(cover).intersection(excluded)
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -350,18 +491,18 @@
+     def test_cover_tokens_are_ints(self) -> None:
+         backend = _MockBackend()
+         coded = _encode_bytes(b"\xab")
+-        tokens = hide(backend, "hi", coded)
++        tokens = hide(backend, "hi", coded, stego_key=_STEGO_KEY)
+         assert all(isinstance(t, int) for t in tokens)
+ 
+     def test_cover_tokens_in_vocab_range(self) -> None:
+         backend = _MockBackend()
+         coded = _encode_bytes(b"\xab\xcd")
+-        tokens = hide(backend, "hi", coded)
++        tokens = hide(backend, "hi", coded, stego_key=_STEGO_KEY)
+         assert all(0 <= t < _VOCAB_SIZE for t in tokens)
+ 
+ 
+ class TestExtractProperties:
+     def test_empty_cover_produces_coded_bits(self) -> None:
+         backend = _MockBackend()
+-        result = extract(backend, "hi", [])
++        result = extract(backend, "hi", [], stego_key=_STEGO_KEY)
+         assert isinstance(result, CodedBits)
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/tests/steg/test_frequencies.py /mnt/data/llm-steg-work/tests/steg/test_frequencies.py
+--- /mnt/data/llm-steg-original/tests/steg/test_frequencies.py	2026-08-14 14:34:30.000000000 +0000
++++ /mnt/data/llm-steg-work/tests/steg/test_frequencies.py	2026-08-14 17:02:50.680659815 +0000
+@@ -87,6 +87,17 @@
+         _, table = logits_to_frequency_table(_uniform_logits(500), top_k=16, total=256)
+         assert table.total == 256
+ 
++    def test_temperature_changes_integer_distribution(self) -> None:
++        logits = [8.0, 4.0, 2.0, 1.0, 0.0]
++        _, cold = logits_to_frequency_table(logits, top_k=5, total=1024, temperature=0.7)
++        _, hot = logits_to_frequency_table(logits, top_k=5, total=1024, temperature=1.3)
++        assert cold.frequencies != hot.frequencies
++        assert max(cold.frequencies) > max(hot.frequencies)
++
++    def test_invalid_temperature_rejected(self) -> None:
++        with pytest.raises(ValueError, match="temperature"):
++            logits_to_frequency_table(_uniform_logits(10), top_k=5, temperature=0.0)
++
+     def test_top_k_equals_vocab_size(self) -> None:
+         vocab_size = 100
+         top_ids, table = logits_to_frequency_table(_uniform_logits(vocab_size), top_k=vocab_size)
+@@ -117,6 +128,27 @@
+         top_ids, _ = logits_to_frequency_table(logits, top_k=5, total=10)
+         assert top_ids == sorted(top_ids)
+ 
++    def test_excluded_token_ids_are_skipped(self) -> None:
++        logits = _peaked_logits(20, peak_token=3, scale=50.0)
++        top_ids, table = logits_to_frequency_table(
++            logits,
++            top_k=5,
++            total=32,
++            excluded_token_ids=(3, 4),
++        )
++        assert 3 not in top_ids
++        assert 4 not in top_ids
++        assert len(top_ids) == 5
++        assert table.total == 32
++
++    def test_exclusion_can_reduce_available_vocabulary_below_top_k(self) -> None:
++        with pytest.raises(ValueError, match="available vocabulary size"):
++            logits_to_frequency_table(
++                _uniform_logits(5),
++                top_k=4,
++                excluded_token_ids=(0, 1),
++            )
++
+     def test_frequency_allocation_sum_invariant_random(self) -> None:
+         rng = random.Random(2024)
+         for _ in range(50):
+@@ -135,6 +167,8 @@
+         cfg = SteganographyConfig()
+         assert cfg.top_k == DEFAULT_TOP_K
+         assert cfg.frequency_total == FREQUENCY_TOTAL
++        assert cfg.excluded_token_ids == ()
++        assert cfg.temperature == 1.0
+ 
+     def test_invalid_top_k(self) -> None:
+         from lsteg.steg.engine import SteganographyConfig
+@@ -147,3 +181,15 @@
+ 
+         with pytest.raises(ValueError, match="frequency_total must be"):
+             SteganographyConfig(frequency_total=MAX_FREQUENCY_TOTAL + 1)
++
++    def test_excluded_tokens_must_be_unique(self) -> None:
++        from lsteg.steg.engine import SteganographyConfig
++
++        with pytest.raises(ValueError, match="duplicates"):
++            SteganographyConfig(excluded_token_ids=(1, 1))
++
++    def test_invalid_config_temperature(self) -> None:
++        from lsteg.steg.engine import SteganographyConfig
++
++        with pytest.raises(ValueError, match="temperature"):
++            SteganographyConfig(temperature=0.0)
+Only in /mnt/data/llm-steg-work/tests/steg: test_mapping.py
+diff -ru '--exclude=__pycache__' '--exclude=.pytest_cache' /mnt/data/llm-steg-original/tests/steg/test_tokenizer_transport.py /mnt/data/llm-steg-work/tests/steg/test_tokenizer_transport.py
+--- /mnt/data/llm-steg-original/tests/steg/test_tokenizer_transport.py	2026-08-14 14:41:14.000000000 +0000
++++ /mnt/data/llm-steg-work/tests/steg/test_tokenizer_transport.py	2026-08-14 17:00:14.689089391 +0000
+@@ -47,7 +47,13 @@
+ from lsteg.coding.range_coder import RangeDecoder, RangeEncoder
+ from lsteg.model.interface import Logits, RuntimeFingerprint
+ from lsteg.model.manifest import ModelManifest
+-from lsteg.steg.engine import SteganographyConfig, extract, hide
++from lsteg.steg.engine import (
++    SteganographyConfig,
++    extract,
++    extract_bytes,
++    hide,
++    hide_bytes,
++)
+ 
+ # ---------------------------------------------------------------------------
+ # Mock backend (same as test_engine, kept local for clarity)
+@@ -55,6 +61,9 @@
+ 
+ _VOCAB_SIZE = 1000
+ 
++_STEGO_KEY = bytes(range(32))
++_QWEN_CONTROL_TOKENS = (151643, 151644, 151645)
++
+ 
+ @dataclass
+ class _MockBackend:
+@@ -149,7 +158,13 @@
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=64)
+         coded = _encode_bytes(b"\xde\xad\xbe\xef")
+-        cover_ids = hide(backend, "hello", coded, config=cfg)  # type: ignore[arg-type]
++        cover_ids = hide(
++            backend,
++            "hello",
++            coded,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )  # type: ignore[arg-type]
+ 
+         # Simulate text transmission
+         cover_text = backend.detokenize(cover_ids)
+@@ -173,7 +188,13 @@
+         coded = _encode_bytes(payload)
+ 
+         # Sender side
+-        cover_ids = hide(backend, "hello", coded, config=cfg)  # type: ignore[arg-type]
++        cover_ids = hide(
++            backend,
++            "hello",
++            coded,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )  # type: ignore[arg-type]
+         prompt_text = "hello"
+         cover_text = backend.detokenize(cover_ids)
+ 
+@@ -186,7 +207,13 @@
+             "Transport invariance broken: receiver gets different token IDs"
+         )
+ 
+-        recovered_coded = extract(backend, prompt_text, received_ids, config=cfg)
++        recovered_coded = extract(
++            backend,
++            prompt_text,
++            received_ids,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )
+         recovered_payload = _decode_bytes(recovered_coded, len(payload))
+         assert recovered_payload == payload
+ 
+@@ -229,7 +256,13 @@
+         backend = _MockBackend()
+         cfg = SteganographyConfig(top_k=32)
+         coded = _encode_bytes(b"\xca\xfe\xba\xbe")
+-        cover_ids = hide(backend, "test", coded, config=cfg)  # type: ignore[arg-type]
++        cover_ids = hide(
++            backend,
++            "test",
++            coded,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )  # type: ignore[arg-type]
+ 
+         text = backend.detokenize(cover_ids)
+         recovered = backend.tokenize(text)
+@@ -272,14 +305,20 @@
+         manifest = ModelManifest.from_path(_DEFAULT_MANIFEST)
+         return TransformersBackend.load(manifest, cache_dir=_DEFAULT_CACHE, local_files_only=True)
+ 
+-    def test_top_k_tokens_survive_detokenize_tokenize(self, backend) -> None:  # type: ignore[no-untyped-def]
++    def test_top_k_tokens_survive_detokenize_tokenize(
++        self, backend
++    ) -> None:  # type: ignore[no-untyped-def]
+         """Every token in the top-k alphabet must round-trip through text."""
+         from lsteg.steg.frequencies import logits_to_frequency_table
+ 
+         prompt = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
+         token_ids = backend.tokenize(prompt)
+         logits = backend.next_logits(token_ids)
+-        top_ids, _ = logits_to_frequency_table(list(logits), top_k=256)
++        top_ids, _ = logits_to_frequency_table(
++            list(logits),
++            top_k=256,
++            excluded_token_ids=_QWEN_CONTROL_TOKENS,
++        )
+ 
+         failures: list[int] = []
+         for tid in top_ids:
+@@ -296,16 +335,77 @@
+ 
+     def test_full_pipeline_8bit(self, backend) -> None:  # type: ignore[no-untyped-def]
+         """8-bit payload round-trip via text transmission with real LLM."""
+-        cfg = SteganographyConfig(top_k=64)
++        cfg = SteganographyConfig(
++            top_k=64,
++            excluded_token_ids=_QWEN_CONTROL_TOKENS,
++        )
+         payload = b"\x42"
+         coded = _encode_bytes(payload)
+         prompt = "テスト："  # noqa: RUF001
+ 
+-        cover_ids = hide(backend, prompt, coded, config=cfg)  # type: ignore[arg-type]
++        cover_ids = hide(
++            backend,
++            prompt,
++            coded,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )  # type: ignore[arg-type]
+         cover_text = backend.detokenize(cover_ids)
+ 
+         received_ids = backend.tokenize(cover_text)
+         assert received_ids == cover_ids, "Transport invariance failed with real Qwen3 backend"
+ 
+-        recovered = _decode_bytes(extract(backend, prompt, received_ids, config=cfg), len(payload))
++        recovered_coded = extract(
++            backend,
++            prompt,
++            received_ids,
++            stego_key=_STEGO_KEY,
++            config=cfg,
++        )
++        recovered = _decode_bytes(recovered_coded, len(payload))
+         assert recovered == payload
++
++
++@pytest.mark.skipif(
++    not _RUN_MODEL,
++    reason="set LSTEG_RUN_MODEL_TESTS=1 after uv sync --extra model",
++)
++def test_phase7_byte_channel_via_text() -> None:
++    """Phase 7 smoke test: arbitrary bytes survive real-Qwen text transport."""
++    from lsteg.model.manifest import ModelManifest
++    from lsteg.model.transformers_backend import TransformersBackend
++
++    manifest = ModelManifest.from_path(_DEFAULT_MANIFEST)
++    backend = TransformersBackend.load(
++        manifest,
++        cache_dir=_DEFAULT_CACHE,
++        local_files_only=True,
++    )
++    config = SteganographyConfig(
++        top_k=64,
++        excluded_token_ids=_QWEN_CONTROL_TOKENS,
++    )
++    prompt = "架空のニュース記事：\n本日午後、東京都内の"
++    payload = b"\x00\x42\xff\x10"
++
++    cover_ids = hide_bytes(
++        backend,
++        prompt,
++        payload,
++        stego_key=_STEGO_KEY,
++        config=config,
++        max_tokens=256,
++    )
++    cover_text = backend.detokenize(cover_ids)
++    received_ids = backend.tokenize(cover_text)
++    assert received_ids == cover_ids, "real tokenizer transport changed generated token IDs"
++
++    recovered = extract_bytes(
++        backend,
++        prompt,
++        received_ids,
++        len(payload),
++        stego_key=_STEGO_KEY,
++        config=config,
++    )
++    assert recovered == payload
