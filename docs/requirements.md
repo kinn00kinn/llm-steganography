@@ -37,6 +37,9 @@ steganography システムを研究・実装する。
   ciphertext と authentication tag を復元可能に表現する。
 - wrong key、破損 frame、未知 version、上限超過を明確なエラーとして拒否する。
 
+Phase 1 のtext frameは、正規化・圧縮のround-tripを単独検証するためのinner frameであり、
+暗号化・改ざん検知を提供しない。Phase 2でこのinner frameをAEAD secure frameへ格納する。
+
 ### 3.3 coding
 
 - Range Coder 内部は整数演算のみを用いる。
