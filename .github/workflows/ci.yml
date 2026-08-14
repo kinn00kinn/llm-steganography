@@ -60,3 +60,6 @@ jobs:
 
       - name: Run static type checks
         run: uv run --frozen mypy src tests
+
+      - name: Verify static phase-results artifact
+        run: uv run --frozen python scripts/export_phase_results.py --check

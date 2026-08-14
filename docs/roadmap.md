@@ -4,6 +4,10 @@
 
 現在地: **Phase 1 完了、Phase 2 着手前**。
 
+GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
+表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit
+criteriaは維持する。
+
 | Phase | 成果 | 主な exit criteria | LLM/GPU |
 |---:|---|---|:---:|
 | 0 | repo、CLI、品質基盤 | 全品質チェック成功、CLI 4 command が見える | 不要 |

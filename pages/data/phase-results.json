@@ -1,0 +1,350 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "llm-steganography",
+    "repository": "kinn00kinn/llm-steganography",
+    "repository_url": "https://github.com/kinn00kinn/llm-steganography",
+    "last_completed_phase": 1,
+    "next_phase": 2
+  },
+  "publication": {
+    "mode": "static_pre_generated_samples",
+    "runtime_api": false,
+    "accepts_user_input": false,
+    "contains_real_secrets": false
+  },
+  "summary": {
+    "completed_phases": 2,
+    "phase_one_tests": 48,
+    "seeded_round_trips": 1000,
+    "public_samples": 5
+  },
+  "phases": [
+    {
+      "id": 0,
+      "name": "開発基盤",
+      "status": "completed",
+      "summary": "Python 3.12、uv、CLI、test/lint/type check、PR運用を固定。",
+      "exit_criterion": "CLI skeletonと全品質チェックが成功する。",
+      "evidence": [
+        {
+          "label": "Tests",
+          "value": "6 passed"
+        },
+        {
+          "label": "Python",
+          "value": "3.12.10"
+        },
+        {
+          "label": "CLI",
+          "value": "4 commands"
+        },
+        {
+          "label": "CI",
+          "value": "quality required"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "Project configuration",
+          "path": "pyproject.toml",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/95a1e4e5019241123e1c7483c9f1a6d2614a42f8/pyproject.toml"
+        },
+        {
+          "label": "CLI skeleton",
+          "path": "src/lsteg/cli.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/95a1e4e5019241123e1c7483c9f1a6d2614a42f8/src/lsteg/cli.py"
+        },
+        {
+          "label": "CI quality gate",
+          "path": ".github/workflows/ci.yml",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/95a1e4e5019241123e1c7483c9f1a6d2614a42f8/.github/workflows/ci.yml"
+        },
+        {
+          "label": "Repository workflow",
+          "path": "CONTRIBUTING.md",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/95a1e4e5019241123e1c7483c9f1a6d2614a42f8/CONTRIBUTING.md"
+        }
+      ],
+      "commit": "95a1e4e5019241123e1c7483c9f1a6d2614a42f8",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/95a1e4e5019241123e1c7483c9f1a6d2614a42f8",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/1"
+    },
+    {
+      "id": 1,
+      "name": "Text payload codec",
+      "status": "completed",
+      "summary": "NFC、UTF-8、RAW/zlib、versioned frameを完全round-trip。",
+      "exit_criterion": "境界値とrandomized textを100%復元し、bit数を計測できる。",
+      "evidence": [
+        {
+          "label": "Tests",
+          "value": "48 passed"
+        },
+        {
+          "label": "Random round-trips",
+          "value": "1,000"
+        },
+        {
+          "label": "Secret limit",
+          "value": "100 code points"
+        },
+        {
+          "label": "Frame header",
+          "value": "10 bytes"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "Payload codec",
+          "path": "src/lsteg/payload/codec.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/60178e9879c36b80e4ecdb525e4d6ce8a1bba437/src/lsteg/payload/codec.py"
+        },
+        {
+          "label": "Binary framing",
+          "path": "src/lsteg/payload/framing.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/60178e9879c36b80e4ecdb525e4d6ce8a1bba437/src/lsteg/payload/framing.py"
+        },
+        {
+          "label": "Codec tests",
+          "path": "tests/payload/test_codec.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/60178e9879c36b80e4ecdb525e4d6ce8a1bba437/tests/payload/test_codec.py"
+        },
+        {
+          "label": "Framing tests",
+          "path": "tests/payload/test_framing.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/60178e9879c36b80e4ecdb525e4d6ce8a1bba437/tests/payload/test_framing.py"
+        },
+        {
+          "label": "Wire format ADR",
+          "path": "docs/adr/001-text-payload-frame-v1.md",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/60178e9879c36b80e4ecdb525e4d6ce8a1bba437/docs/adr/001-text-payload-frame-v1.md"
+        }
+      ],
+      "commit": "60178e9879c36b80e4ecdb525e4d6ce8a1bba437",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/60178e9879c36b80e4ecdb525e4d6ce8a1bba437",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/2"
+    },
+    {
+      "id": 2,
+      "name": "共有鍵・AEAD",
+      "status": "next",
+      "summary": "key generation、key separation、authenticated encryptionを追加。",
+      "exit_criterion": "正しい鍵で復元し、wrong key・改ざん・truncationを拒否する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 3,
+      "name": "Integer Range Coder",
+      "status": "planned",
+      "summary": "LLMなしでinteger frequencyとfinite payloadを相互変換。",
+      "exit_criterion": "1 byteから10 KiBまで数千ケースを完全復元する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 4,
+      "name": "Model backend",
+      "status": "planned",
+      "summary": "固定model/tokenizerからnext-token logitsを取得。",
+      "exit_criterion": "artifact revisionを固定してlogits interfaceを再現する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 5,
+      "name": "日本語entropy probe",
+      "status": "planned",
+      "summary": "日本語coverの実測capacityを測定。",
+      "exit_criterion": "500文字目標のGO/NO-GOを実測値で判断する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 6,
+      "name": "1-bit stego spike",
+      "status": "planned",
+      "summary": "LLMを介した最小のencode/decode同期を確認。",
+      "exit_criterion": "別processでも短いpayloadを完全復元する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 7,
+      "name": "LLM + Range Coding",
+      "status": "planned",
+      "summary": "deterministic integer frequenciesとRange Codingを接続。",
+      "exit_criterion": "小さいpayloadをend-to-endで完全復元する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 8,
+      "name": "100文字試験",
+      "status": "planned",
+      "summary": "cover上限を1000文字から段階的に短縮。",
+      "exit_criterion": "100秘密文字のreliable round-tripを達成する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 9,
+      "name": "自然さ・capacity",
+      "status": "planned",
+      "summary": "control/stegoを同じmanifestで比較。",
+      "exit_criterion": "reliabilityを保ったまま品質・容量指標を改善する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 10,
+      "name": "再現性hardening",
+      "status": "planned",
+      "summary": "process、再起動、device差を段階的に検証。",
+      "exit_criterion": "再起動後の互換とartifact mismatch検出を保証する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 11,
+      "name": "Sample export / viewer",
+      "status": "planned",
+      "summary": "sanitized sample schemaと比較viewerを安定化。",
+      "exit_criterion": "公開sampleがschema/redaction gateを通過する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": 12,
+      "name": "Pages / deploy",
+      "status": "planned",
+      "summary": "生成済みsampleをPagesで継続公開。",
+      "exit_criterion": "固定manifestのsample siteとlocal runtimeを個別検証する。",
+      "evidence": [],
+      "artifacts": []
+    }
+  ],
+  "samples": [
+    {
+      "id": "raw-short",
+      "label": "短い秘密文",
+      "synthetic_secret": "秘密",
+      "normalized_text": "秘密",
+      "restored_text": "秘密",
+      "exact_match": true,
+      "normalization_changed": false,
+      "compression": "RAW",
+      "metrics": {
+        "input_code_points": 2,
+        "normalized_code_points": 2,
+        "raw_bytes": 6,
+        "raw_bits": 48,
+        "stored_bytes": 6,
+        "stored_bits": 48,
+        "frame_bytes": 16,
+        "frame_bits": 128,
+        "bytes_saved": 0,
+        "compression_ratio": 1.0
+      },
+      "frame_hex": "4c535447010000060006e7a798e5af86"
+    },
+    {
+      "id": "nfc-normalization",
+      "label": "NFC正規化",
+      "synthetic_secret": "éを含む公開用サンプル",
+      "normalized_text": "éを含む公開用サンプル",
+      "restored_text": "éを含む公開用サンプル",
+      "exact_match": true,
+      "normalization_changed": true,
+      "compression": "RAW",
+      "metrics": {
+        "input_code_points": 12,
+        "normalized_code_points": 11,
+        "raw_bytes": 32,
+        "raw_bits": 256,
+        "stored_bytes": 32,
+        "stored_bits": 256,
+        "frame_bytes": 42,
+        "frame_bits": 336,
+        "bytes_saved": 0,
+        "compression_ratio": 1.0
+      },
+      "frame_hex": "4c535447010000200020c3a9e38292e590abe38280e585ace9968be794a8e382b5e383b3e38397e383ab"
+    },
+    {
+      "id": "japanese-note",
+      "label": "日本語メモ",
+      "synthetic_secret": "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
+      "normalized_text": "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
+      "restored_text": "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
+      "exact_match": true,
+      "normalization_changed": false,
+      "compression": "RAW",
+      "metrics": {
+        "input_code_points": 37,
+        "normalized_code_points": 37,
+        "raw_bytes": 111,
+        "raw_bits": 888,
+        "stored_bytes": 111,
+        "stored_bits": 888,
+        "frame_bytes": 121,
+        "frame_bits": 968,
+        "bytes_saved": 0,
+        "compression_ratio": 1.0
+      },
+      "frame_hex": "4c5354470100006f006fe4bb8ae697a5e381afe7a094e7a9b6e5aea4e381abe697a9e3818fe79d80e38184e3819fe381aee381a7e38081e7aa93e38292e9968be38191e381a6e99d99e3818be381aae69982e99693e381abe5ae9fe9a893e3838ee383bce38388e38292e695b4e79086e38197e3819fe38082"
+    },
+    {
+      "id": "max-repeat",
+      "label": "100文字の境界",
+      "synthetic_secret": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+      "normalized_text": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+      "restored_text": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+      "exact_match": true,
+      "normalization_changed": false,
+      "compression": "ZLIB",
+      "metrics": {
+        "input_code_points": 100,
+        "normalized_code_points": 100,
+        "raw_bytes": 300,
+        "raw_bits": 2400,
+        "stored_bytes": 15,
+        "stored_bits": 120,
+        "frame_bytes": 25,
+        "frame_bits": 200,
+        "bytes_saved": 285,
+        "compression_ratio": 0.05
+      },
+      "frame_hex": "4c5354470101012c000f78da7bdcd8f47814118700c90dbdd9"
+    },
+    {
+      "id": "max-utf8",
+      "label": "400 UTF-8 bytesの境界",
+      "synthetic_secret": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "normalized_text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "restored_text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "exact_match": true,
+      "normalization_changed": false,
+      "compression": "ZLIB",
+      "metrics": {
+        "input_code_points": 100,
+        "normalized_code_points": 100,
+        "raw_bytes": 400,
+        "raw_bits": 3200,
+        "stored_bytes": 17,
+        "stored_bits": 136,
+        "frame_bytes": 27,
+        "frame_bits": 216,
+        "bytes_saved": 383,
+        "compression_ratio": 0.0425
+      },
+      "frame_hex": "4c53544701010190001178dafb307f46c387513c6830000c3c094c"
+    }
+  ],
+  "comparison": {
+    "status": "not_available",
+    "available_from_phase": 6,
+    "reason": "The language-model steganography path does not exist yet. Control/stego prose will be published only after a real round-trip works."
+  }
+}

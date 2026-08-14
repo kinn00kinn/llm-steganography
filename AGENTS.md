@@ -35,6 +35,7 @@ types must not leak into payload or coding modules.
 - Reliability takes precedence over naturalness through Phase 8.
 - Benchmark every capacity or naturalness optimization.
 - Do not claim that encryption alone makes generated text undetectable.
+- Publish only allowlisted synthetic samples; never put real secrets or keys in Pages artifacts.
 
 ## Development workflow
 
@@ -45,6 +46,8 @@ types must not leak into payload or coding modules.
 - Keep protocol constants versioned; do not silently change wire behavior.
 - Treat `first.md` as the source brief. Keep maintained decisions in `docs/`.
 - Update documentation and tests in the same change as behavior.
+- When a phase is completed, update `lsteg.reporting.phase_results`, regenerate
+  `pages/data/phase-results.json`, and include its source/test evidence in the same pull request.
 
 ## Git workflow
 
@@ -65,6 +68,7 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src tests
+uv run python scripts/export_phase_results.py --check
 ```
 
 For an individual phase, implement only that phase and prerequisites explicitly

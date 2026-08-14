@@ -13,6 +13,7 @@
 - [ ] `uv run --frozen ruff format --check .`
 - [ ] `uv run --frozen mypy src tests`
 - [ ] Encoder changes include decoder round-trip tests, or not applicable
+- [ ] Phase completion updates the static Pages result artifact, or not applicable
 
 ## Protocol / security / reproducibility impact
 
