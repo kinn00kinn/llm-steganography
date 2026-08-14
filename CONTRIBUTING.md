@@ -55,6 +55,7 @@ PR の条件:
 - `quality` check が成功している
 - review conversation が解決済み
 - key、secret、model weight、巨大な benchmark artifact を含まない
+- phase完了時はPages results JSON、完了条件、source/test linkを同じPRで更新する
 
 solo 開発中は approval 0 件で merge 可能だが、PR と CI は省略しない。collaborator が
 増えた時点で required approval を 1 件へ引き上げる。
@@ -71,6 +72,7 @@ uv run --frozen pytest
 uv run --frozen ruff check .
 uv run --frozen ruff format --check .
 uv run --frozen mypy src tests
+uv run --frozen python scripts/export_phase_results.py --check
 ```
 
 LLM/GPU test は通常 CI と分離し、model artifact、revision、hardware、runtime を結果に

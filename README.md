@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/kinn00kinn/llm-steganography/actions/workflows/ci.yml/badge.svg)](https://github.com/kinn00kinn/llm-steganography/actions/workflows/ci.yml)
 
+[フェーズ別の成果と公開sampleを見る](http://s.kinn-kinn.com/llm-steganography/)
+
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
@@ -63,9 +65,13 @@ squash merge します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照�
 
 ## Web UI の位置づけ
 
-将来、ドキュメントと比較 viewer を GitHub Pages で公開する予定です。ローカルで生成・
-検証・redaction 済みの synthetic sample だけを静的配信し、Pages 上での秘密文入力、
-鍵入力、Python/LLM 推論、API 接続は行いません。
+ドキュメントとprogress viewerをGitHub Pagesで公開します。ローカルで生成・検証・
+redaction済みのsynthetic sampleだけを静的配信し、Pages上での秘密文入力、鍵入力、
+Python/LLM推論、API接続は行いません。
+
+Phase 0/1のprogress viewerは公開済みです。各数値は`pages/data/phase-results.json`として
+commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と一致することをCIで
+検証します。最終的なcontrol/stego比較は実装が成立するPhase 6以降に追加します。
 
 ## パッケージ構成
 

@@ -10,8 +10,9 @@ GitHub Pages では、ローカルで一度生成・検証した synthetic sampl
 3. 同じ条件で秘密を埋め込まず生成した control text
 4. control と stego の差、および各 token が運んだ情報量
 
-Pages 上では encode/decode を実行しない。秘密文・鍵の入力、API 接続、ブラウザ内推論、
-GPU job、upload、自由入力 playground は scope 外とする。
+Pages 上では encode/decode を実行しない。秘密文・鍵の入力、外部API接続、ブラウザ内推論、
+GPU job、upload、自由入力 playground は scope 外とする。同一originにcommitされた静的
+sample JSONのGETだけを行う。
 
 ## 2. publish pipeline
 
@@ -147,7 +148,8 @@ redaction しない。CI はすべての public sample に対して次を検証�
 
 ## 8. viewer requirements
 
-- 全 sample は read-only で、自由入力 form や network request を持たない
+- 全 sample は read-onlyで、自由入力formや外部network requestを持たない
+- 読み込みは同一originのversioned static JSONだけに限定する
 - JavaScript 無効時も概要と cover/control/restored text を読める
 - diff を色だけで表現せず、記号・label・screen reader text を併用する
 - copy button は control/stego/restored の対象を明示する
@@ -156,6 +158,7 @@ redaction しない。CI はすべての public sample に対して次を検証�
 
 ## 9. implementation timing
 
-Phase 1～5 では viewer を先に作らず、private experiment record と public sample export schema
-を CLI/JSON で確立する。Phase 9 の metrics が安定した後、同じ schema を読む静的 viewer
-を追加する。sample と viewer が存在するまでは空の Pages site を公開しない。
+Phase 0/1ではprogress viewerを先行配置し、完了条件、source artifact、payload
+round-trip sampleだけを表示する。これはPhase 11の完了を意味しない。Phase 1～5でprivate
+experiment recordとpublic sample export schemaをCLI/JSONとして育て、Phase 9のmetricsが
+安定した後にcontrol/stego比較を完成させる。
