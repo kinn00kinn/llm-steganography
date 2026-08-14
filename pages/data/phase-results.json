@@ -4,8 +4,8 @@
     "name": "llm-steganography",
     "repository": "kinn00kinn/llm-steganography",
     "repository_url": "https://github.com/kinn00kinn/llm-steganography",
-    "last_completed_phase": 1,
-    "next_phase": 2
+    "last_completed_phase": 2,
+    "next_phase": 3
   },
   "publication": {
     "mode": "static_pre_generated_samples",
@@ -14,9 +14,10 @@
     "contains_real_secrets": false
   },
   "summary": {
-    "completed_phases": 2,
+    "completed_phases": 3,
     "phase_one_tests": 48,
     "seeded_round_trips": 1000,
+    "secure_round_trips": 500,
     "public_samples": 5
   },
   "phases": [
@@ -128,16 +129,62 @@
     {
       "id": 2,
       "name": "共有鍵・AEAD",
-      "status": "next",
-      "summary": "key generation、key separation、authenticated encryptionを追加。",
+      "status": "completed",
+      "summary": "用途分離した共有鍵とXChaCha20-Poly1305でpayloadを暗号化・認証。",
       "exit_criterion": "正しい鍵で復元し、wrong key・改ざん・truncationを拒否する。",
-      "evidence": [],
-      "artifacts": []
+      "evidence": [
+        {
+          "label": "Core test suite",
+          "value": "93 passed"
+        },
+        {
+          "label": "Secure round-trips",
+          "value": "500"
+        },
+        {
+          "label": "Unique nonce trials",
+          "value": "256 / 256"
+        },
+        {
+          "label": "Secure overhead",
+          "value": "50 bytes"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "Authenticated payload",
+          "path": "src/lsteg/payload/crypto.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/da6846a37341bd768a09436dc1a94bcb2756fa40/src/lsteg/payload/crypto.py"
+        },
+        {
+          "label": "Key management",
+          "path": "src/lsteg/payload/keys.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/da6846a37341bd768a09436dc1a94bcb2756fa40/src/lsteg/payload/keys.py"
+        },
+        {
+          "label": "Secure framing",
+          "path": "src/lsteg/payload/secure_framing.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/da6846a37341bd768a09436dc1a94bcb2756fa40/src/lsteg/payload/secure_framing.py"
+        },
+        {
+          "label": "Crypto tests",
+          "path": "tests/payload/test_crypto.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/da6846a37341bd768a09436dc1a94bcb2756fa40/tests/payload/test_crypto.py"
+        },
+        {
+          "label": "Security decision",
+          "path": "docs/adr/002-shared-key-aead-v1.md",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/da6846a37341bd768a09436dc1a94bcb2756fa40/docs/adr/002-shared-key-aead-v1.md"
+        }
+      ],
+      "commit": "da6846a37341bd768a09436dc1a94bcb2756fa40",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/da6846a37341bd768a09436dc1a94bcb2756fa40",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/5"
     },
     {
       "id": 3,
       "name": "Integer Range Coder",
-      "status": "planned",
+      "status": "next",
       "summary": "LLMなしでinteger frequencyとfinite payloadを相互変換。",
       "exit_criterion": "1 byteから10 KiBまで数千ケースを完全復元する。",
       "evidence": [],
@@ -247,6 +294,13 @@
         "bytes_saved": 0,
         "compression_ratio": 1.0
       },
+      "secure_metrics": {
+        "algorithm": "XChaCha20-Poly1305",
+        "frame_bytes": 66,
+        "frame_bits": 528,
+        "overhead_bytes": 50,
+        "authenticated": true
+      },
       "frame_hex": "4c535447010000060006e7a798e5af86"
     },
     {
@@ -269,6 +323,13 @@
         "frame_bits": 336,
         "bytes_saved": 0,
         "compression_ratio": 1.0
+      },
+      "secure_metrics": {
+        "algorithm": "XChaCha20-Poly1305",
+        "frame_bytes": 92,
+        "frame_bits": 736,
+        "overhead_bytes": 50,
+        "authenticated": true
       },
       "frame_hex": "4c535447010000200020c3a9e38292e590abe38280e585ace9968be794a8e382b5e383b3e38397e383ab"
     },
@@ -293,6 +354,13 @@
         "bytes_saved": 0,
         "compression_ratio": 1.0
       },
+      "secure_metrics": {
+        "algorithm": "XChaCha20-Poly1305",
+        "frame_bytes": 171,
+        "frame_bits": 1368,
+        "overhead_bytes": 50,
+        "authenticated": true
+      },
       "frame_hex": "4c5354470100006f006fe4bb8ae697a5e381afe7a094e7a9b6e5aea4e381abe697a9e3818fe79d80e38184e3819fe381aee381a7e38081e7aa93e38292e9968be38191e381a6e99d99e3818be381aae69982e99693e381abe5ae9fe9a893e3838ee383bce38388e38292e695b4e79086e38197e3819fe38082"
     },
     {
@@ -316,6 +384,13 @@
         "bytes_saved": 285,
         "compression_ratio": 0.05
       },
+      "secure_metrics": {
+        "algorithm": "XChaCha20-Poly1305",
+        "frame_bytes": 75,
+        "frame_bits": 600,
+        "overhead_bytes": 50,
+        "authenticated": true
+      },
       "frame_hex": "4c5354470101012c000f78da7bdcd8f47814118700c90dbdd9"
     },
     {
@@ -338,6 +413,13 @@
         "frame_bits": 216,
         "bytes_saved": 383,
         "compression_ratio": 0.0425
+      },
+      "secure_metrics": {
+        "algorithm": "XChaCha20-Poly1305",
+        "frame_bytes": 77,
+        "frame_bits": 616,
+        "overhead_bytes": 50,
+        "authenticated": true
       },
       "frame_hex": "4c53544701010190001178dafb307f46c387513c6830000c3c094c"
     }

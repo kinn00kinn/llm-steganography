@@ -75,7 +75,7 @@ squash merge します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照�
 redaction済みのsynthetic sampleだけを静的配信し、Pages上での秘密文入力、鍵入力、
 Python/LLM推論、API接続は行いません。
 
-Phase 0/1のprogress viewerは公開済みです。各数値は`pages/data/phase-results.json`として
+Phase 0〜2のprogress viewerを公開します。各数値は`pages/data/phase-results.json`として
 commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と一致することをCIで
 検証します。最終的なcontrol/stego比較は実装が成立するPhase 6以降に追加します。
 

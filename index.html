@@ -76,8 +76,8 @@
 
       <section class="facts" aria-label="検証サマリー">
         <article class="fact">
-          <strong data-summary="seeded_round_trips">—</strong>
-          <span>randomized round-trips</span>
+          <strong data-summary="secure_round_trips">—</strong>
+          <span>secure round-trips</span>
         </article>
         <article class="fact">
           <strong>100%</strong>
@@ -101,14 +101,14 @@
         <div class="result-grid">
           <article class="tile result-card">
             <span class="status-pill completed">検証済み</span>
-            <h3>秘密文を壊さずに往復できる</h3>
+            <h3>秘密文を暗号化して復元できる</h3>
             <p>
-              100文字までのUnicode文字列を正規化・圧縮・フレーム化し、元の文章へ完全に戻せます。
+              100文字までのUnicode文字列を正規化・圧縮・認証付き暗号化し、同じ鍵で完全に戻せます。
             </p>
             <ul class="check-list">
-              <li>NFC正規化とUTF-8変換</li>
-              <li>RAW / zlibの自動選択</li>
-              <li>versioned frameからの完全復元</li>
+              <li>256-bit master keyと用途別subkey</li>
+              <li>XChaCha20-Poly1305とrandom nonce</li>
+              <li>wrong key・改ざん・破損を拒否</li>
             </ul>
             <a class="text-link" href="#samples">生成済みサンプルで確認 <span>→</span></a>
           </article>
