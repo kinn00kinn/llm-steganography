@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          version: "0.11.32"
+          python-version: "3.12.10"
+          enable-cache: true
+
+      - name: Synchronize locked dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run tests
+        run: uv run --frozen pytest
+
+      - name: Run lint
+        run: uv run --frozen ruff check .
+
+      - name: Verify formatting
+        run: uv run --frozen ruff format --check .
+
+      - name: Run static type checks
+        run: uv run --frozen mypy src tests

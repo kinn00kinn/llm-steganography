@@ -46,6 +46,18 @@ types must not leak into payload or coding modules.
 - Treat `first.md` as the source brief. Keep maintained decisions in `docs/`.
 - Update documentation and tests in the same change as behavior.
 
+## Git workflow
+
+- Never commit or push directly to `main`.
+- Start work from an up-to-date `main` and create one short-lived branch per concern.
+- Use `feat/`, `fix/`, `docs/`, `chore/`, `research/`, `refactor/`, `test/`, or `ci/`
+  followed by a lowercase kebab-case description. `hotfix/`, `release/`, and automated
+  `dependabot/` branches are also allowed.
+- Keep commits reviewable and use Conventional Commit prefixes.
+- Open a pull request using the repository template and wait for the required `quality` check.
+- Resolve review conversations and squash merge. Delete the branch after merge.
+- Do not weaken or bypass the `main` ruleset to land a change.
+
 Run before handing off a change:
 
 ```text
