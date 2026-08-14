@@ -148,13 +148,51 @@ temperatureやプロンプト（日記、雑談、旅行記など）を変更し
 ### Phase 5D: End-to-end budget
 $p90(\text{secret payload} + \text{crypto overhead}) < p10(\text{500-char cover capacity})$ を満たせるか判定し、500文字目標でのGO/NO-GOを最終決定する。無理な場合はカバー文字数や秘密文字数の制約変更を行う。また、AES-SIVの導入など、crypto overheadの削減も検討する。
 
-## Phase 6–8 — end-to-end steganography
+## Phase 6–8 — end-to-end steganography (Dual-LLM Coding)
 
-まず 1-bit/token spike で context、tokenizer、prompt、keyed mapping の同期だけを検証。
-次に deterministic integer frequencies と Range Coding を接続する。秘密文は小さい値から
-始め、100 文字時は cover 上限を 1000 → 800 → 700 → 600 → 500 と縮める。
+Phase 5での実測に基づき、本プロジェクトのステガノグラフィーは**「Secret-sideの圧縮」と「Cover-sideの埋め込み」の両方にLLMのRange Codingを用いる二段階構造（Dual-LLM Coding）**を採用する。秘密文の往復と生成は以下のパイプラインとなる。
 
-Phase 6 着手前に prompt/topic の再現方法を ADR で決定する。
+```text
+             ┌──────────────────────┐
+             │ SECRET COMPRESSION   │
+             └──────────────────────┘
+秘密の自然な日本語100文字
+          │
+          ▼
+       tokenize
+          │
+          ▼
+   Secret Language Model
+          │
+          ▼
+   Arithmetic / Range Coding
+          │
+          ▼
+      数百bit (lossless圧縮)
+          │
+          ▼
+        AEAD
+          │
+          ▼
+      encrypted bits
+
+             ┌──────────────────────┐
+             │ COVER GENERATION     │
+             └──────────────────────┘
+      encrypted bits
+          │
+          ▼
+      RRC / Range
+          ▲
+          │
+       Cover LLM
+          │
+          ▼
+     日本語500文字
+```
+
+この構造により、秘密文は「意味圧縮（lossless）」されて極小のbit列となり、暗号化を経てカバーテキストの分布に埋め込まれる。
+Phase 6ではまず 1-bit/token spike で context、tokenizer、prompt、keyed mapping の同期を検証する。Phase 7で上記のDual-LLMパイプラインを結合し、Phase 8で100文字秘密文の500文字カバーへの完全往復試験を行う。
 
 ## Phase 9–12 — 品質、再現性、UI、配備
 
