@@ -7,8 +7,9 @@
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
-**Phase 4: model backend** まで完了しています。payload、暗号、integer coding、model推論を
-独立に実装・検証します。次はPhase 5の日本語entropy/capacity probeです。
+**Phase 6 mock channel** まで実装済みで、Phase 7の実Qwen end-to-end検証へ進んでいます。
+payload、暗号、integer coding、model推論、stego channelを独立に検証し、`K_stego`による
+keyed candidate mappingとarbitrary-byte transportまで接続しています。
 
 ## 目標
 
@@ -61,6 +62,7 @@ pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version
 - [ADR-002: shared-key and AEAD envelope v1](docs/adr/002-shared-key-aead-v1.md)
 - [ADR-003: integer Range Coder v1](docs/adr/003-integer-range-coder-v1.md)
 - [ADR-004: pinned model backend v1](docs/adr/004-pinned-model-backend-v1.md)
+- [ADR-005: keyed cover channel v1](docs/adr/005-keyed-cover-channel-v1.md)
 - [コントリビューション規約](CONTRIBUTING.md)
 - [初期メモ](first.md)
 
@@ -144,3 +146,31 @@ uv run --extra model python scripts/probe_model_backend.py --local-files-only
 
 debug modelは`Qwen/Qwen3-1.7B`のfull commit SHAへ固定する。weightはignoredな
 `artifacts/model-cache/`に置き、GitHub Pagesやrepositoryへ含めない。
+
+## Phase 7 local smoke test
+
+Phase 7では、共有master keyから導出した`K_stego`でcandidate intervalを並べ替え、
+任意の暗号化bytesをQwenの生成tokenへ埋め込みます。GPU/model artifactを取得済みなら、
+まず実装済みchannelそのものの容量を測定します。Phase 5Bのraw-LM entropy値と、
+実際のtop-k/temperature/integer-frequency channel値は区別します。
+
+```powershell
+uv run --extra model python scripts/probe_channel_capacity.py --local-files-only --samples 100
+```
+
+続いて実モデルのtransport testを実行します。
+
+```powershell
+$env:LSTEG_RUN_MODEL_TESTS = "1"
+uv run --extra model pytest tests/steg/test_tokenizer_transport.py -v
+```
+
+次にsynthetic secretだけを使うsecure-payload smoke testを実行できます。
+
+```powershell
+uv run steg keygen --output shared.key
+uv run --extra model python scripts/demo_e2e_steg.py --key-file shared.key
+```
+
+この段階ではreceiverへencrypted frameのbyte長を内部的に渡しています。最終CLIでは
+secure frameのheaderから必要長を自己復元する設計へ置き換えます。

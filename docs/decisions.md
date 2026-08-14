@@ -17,6 +17,7 @@
 | D-008 | XChaCha20-Poly1305 + HKDF-Expand-SHA256 | 24-byte random nonceと用途別subkey |
 | D-009 | 32-bit integer Range Coder + length frame | floatを排除し有限messageを一意に復元 |
 | D-010 | Qwen3-1.7B commit pin + same-runtime/device numeric policy | model境界と再現性claimを限定 |
+| D-011 | HMAC-SHA256 keyed candidate permutation + arbitrary-byte cover channel | `K_stego`を使用しつつtoken確率質量を維持し、Phase 7のbyte transportを可能にする |
 
 ## 実装前に決める事項
 

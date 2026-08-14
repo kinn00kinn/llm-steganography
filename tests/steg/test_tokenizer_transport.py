@@ -47,13 +47,22 @@ from lsteg.coding.frequencies import FrequencyTable
 from lsteg.coding.range_coder import RangeDecoder, RangeEncoder
 from lsteg.model.interface import Logits, RuntimeFingerprint
 from lsteg.model.manifest import ModelManifest
-from lsteg.steg.engine import SteganographyConfig, extract, hide
+from lsteg.steg.engine import (
+    SteganographyConfig,
+    extract,
+    extract_bytes,
+    hide,
+    hide_bytes,
+)
 
 # ---------------------------------------------------------------------------
 # Mock backend (same as test_engine, kept local for clarity)
 # ---------------------------------------------------------------------------
 
 _VOCAB_SIZE = 1000
+
+_STEGO_KEY = bytes(range(32))
+_QWEN_CONTROL_TOKENS = (151643, 151644, 151645)
 
 
 @dataclass
@@ -149,7 +158,13 @@ class TestMockBackendTransportInvariance:
         backend = _MockBackend()
         cfg = SteganographyConfig(top_k=64)
         coded = _encode_bytes(b"\xde\xad\xbe\xef")
-        cover_ids = hide(backend, "hello", coded, config=cfg)  # type: ignore[arg-type]
+        cover_ids = hide(
+            backend,
+            "hello",
+            coded,
+            stego_key=_STEGO_KEY,
+            config=cfg,
+        )  # type: ignore[arg-type]
 
         # Simulate text transmission
         cover_text = backend.detokenize(cover_ids)
@@ -173,7 +188,13 @@ class TestMockBackendTransportInvariance:
         coded = _encode_bytes(payload)
 
         # Sender side
-        cover_ids = hide(backend, "hello", coded, config=cfg)  # type: ignore[arg-type]
+        cover_ids = hide(
+            backend,
+            "hello",
+            coded,
+            stego_key=_STEGO_KEY,
+            config=cfg,
+        )  # type: ignore[arg-type]
         prompt_text = "hello"
         cover_text = backend.detokenize(cover_ids)
 
@@ -186,7 +207,13 @@ class TestMockBackendTransportInvariance:
             "Transport invariance broken: receiver gets different token IDs"
         )
 
-        recovered_coded = extract(backend, prompt_text, received_ids, config=cfg)
+        recovered_coded = extract(
+            backend,
+            prompt_text,
+            received_ids,
+            stego_key=_STEGO_KEY,
+            config=cfg,
+        )
         recovered_payload = _decode_bytes(recovered_coded, len(payload))
         assert recovered_payload == payload
 
@@ -229,7 +256,13 @@ class TestTransportInvarianceDocumentation:
         backend = _MockBackend()
         cfg = SteganographyConfig(top_k=32)
         coded = _encode_bytes(b"\xca\xfe\xba\xbe")
-        cover_ids = hide(backend, "test", coded, config=cfg)  # type: ignore[arg-type]
+        cover_ids = hide(
+            backend,
+            "test",
+            coded,
+            stego_key=_STEGO_KEY,
+            config=cfg,
+        )  # type: ignore[arg-type]
 
         text = backend.detokenize(cover_ids)
         recovered = backend.tokenize(text)
@@ -247,7 +280,8 @@ _RUN_MODEL = os.getenv("LSTEG_RUN_MODEL_TESTS") == "1"
 _DEFAULT_MANIFEST = (
     Path(__file__).resolve().parents[2] / "config" / "models" / "qwen3-1.7b-debug.json"
 )
-_DEFAULT_CACHE = Path.home() / ".cache" / "huggingface" / "hub"
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_CACHE = _PROJECT_ROOT / "artifacts" / "model-cache"
 
 
 @pytest.mark.skipif(
@@ -272,14 +306,20 @@ class TestTokenizerTransportReal:
         manifest = ModelManifest.from_path(_DEFAULT_MANIFEST)
         return TransformersBackend.load(manifest, cache_dir=_DEFAULT_CACHE, local_files_only=True)
 
-    def test_top_k_tokens_survive_detokenize_tokenize(self, backend) -> None:  # type: ignore[no-untyped-def]
+    def test_top_k_tokens_survive_detokenize_tokenize(
+        self, backend
+    ) -> None:  # type: ignore[no-untyped-def]
         """Every token in the top-k alphabet must round-trip through text."""
         from lsteg.steg.frequencies import logits_to_frequency_table
 
         prompt = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
         token_ids = backend.tokenize(prompt)
         logits = backend.next_logits(token_ids)
-        top_ids, _ = logits_to_frequency_table(list(logits), top_k=256)
+        top_ids, _ = logits_to_frequency_table(
+            list(logits),
+            top_k=256,
+            excluded_token_ids=_QWEN_CONTROL_TOKENS,
+        )
 
         failures: list[int] = []
         for tid in top_ids:
@@ -296,16 +336,77 @@ class TestTokenizerTransportReal:
 
     def test_full_pipeline_8bit(self, backend) -> None:  # type: ignore[no-untyped-def]
         """8-bit payload round-trip via text transmission with real LLM."""
-        cfg = SteganographyConfig(top_k=64)
+        cfg = SteganographyConfig(
+            top_k=64,
+            excluded_token_ids=_QWEN_CONTROL_TOKENS,
+        )
         payload = b"\x42"
         coded = _encode_bytes(payload)
         prompt = "テスト："  # noqa: RUF001
 
-        cover_ids = hide(backend, prompt, coded, config=cfg)  # type: ignore[arg-type]
+        cover_ids = hide(
+            backend,
+            prompt,
+            coded,
+            stego_key=_STEGO_KEY,
+            config=cfg,
+        )  # type: ignore[arg-type]
         cover_text = backend.detokenize(cover_ids)
 
         received_ids = backend.tokenize(cover_text)
         assert received_ids == cover_ids, "Transport invariance failed with real Qwen3 backend"
 
-        recovered = _decode_bytes(extract(backend, prompt, received_ids, config=cfg), len(payload))
+        recovered_coded = extract(
+            backend,
+            prompt,
+            received_ids,
+            stego_key=_STEGO_KEY,
+            config=cfg,
+        )
+        recovered = _decode_bytes(recovered_coded, len(payload))
         assert recovered == payload
+
+
+@pytest.mark.skipif(
+    not _RUN_MODEL,
+    reason="set LSTEG_RUN_MODEL_TESTS=1 after uv sync --extra model",
+)
+def test_phase7_byte_channel_via_text() -> None:
+    """Phase 7 smoke test: arbitrary bytes survive real-Qwen text transport."""
+    from lsteg.model.manifest import ModelManifest
+    from lsteg.model.transformers_backend import TransformersBackend
+
+    manifest = ModelManifest.from_path(_DEFAULT_MANIFEST)
+    backend = TransformersBackend.load(
+        manifest,
+        cache_dir=_DEFAULT_CACHE,
+        local_files_only=True,
+    )
+    config = SteganographyConfig(
+        top_k=64,
+        excluded_token_ids=_QWEN_CONTROL_TOKENS,
+    )
+    prompt = "架空のニュース記事：\n本日午後、東京都内の"
+    payload = b"\x00\x42\xff\x10"
+
+    cover_ids = hide_bytes(
+        backend,
+        prompt,
+        payload,
+        stego_key=_STEGO_KEY,
+        config=config,
+        max_tokens=256,
+    )
+    cover_text = backend.detokenize(cover_ids)
+    received_ids = backend.tokenize(cover_text)
+    assert received_ids == cover_ids, "real tokenizer transport changed generated token IDs"
+
+    recovered = extract_bytes(
+        backend,
+        prompt,
+        received_ids,
+        len(payload),
+        stego_key=_STEGO_KEY,
+        config=config,
+    )
+    assert recovered == payload

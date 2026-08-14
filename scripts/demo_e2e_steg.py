@@ -1,143 +1,111 @@
-"""End-to-End Steganography Spike using Cover LLM Range Coding."""
+"""Phase-7 local E2E smoke test using the pinned Qwen cover model.
+
+This script exercises the real shared-key path:
+
+    synthetic secret -> payload framing -> AEAD -> hide_bytes -> Unicode text
+    -> tokenize -> extract_bytes -> AEAD verify/decrypt -> restored secret
+
+The encrypted frame byte length is still passed explicitly to ``extract_bytes``;
+self-delimiting frame recovery is a later Phase-7 orchestration task.
+"""
+
+from __future__ import annotations
 
 import argparse
 import sys
-import zlib
+import time
 from pathlib import Path
 
-import torch
-import torch.nn.functional as F
-
-from lsteg.coding.frequencies import FrequencyTable
-from lsteg.coding.range_coder import CodedBits, RangeDecoder, RangeEncoder
 from lsteg.model import ModelManifest, TransformersBackend
+from lsteg.payload import (
+    decode_secure_text_payload,
+    derive_keys,
+    encode_secure_text_payload,
+    read_master_key,
+)
+from lsteg.steg import SteganographyConfig, extract_bytes, hide_bytes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = PROJECT_ROOT / "config" / "models" / "qwen3-1.7b-debug.json"
 DEFAULT_CACHE = PROJECT_ROOT / "artifacts" / "model-cache"
+_QWEN_CONTROL_TOKENS = (151643, 151644, 151645)
+_SYNTHETIC_SECRET = "極秘：今夜の会議は中止、明日10時にカフェで。"  # noqa: RUF001
+_DEFAULT_PROMPT = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
 
 
-def get_frequencies(
-    logits_list: list[float], top_k: int = 256, total: int = 32768
-) -> tuple[list[int], FrequencyTable]:
-    """Convert logits to a FrequencyTable of exact size `total` using top_k tokens."""
-    t_logits = torch.tensor(logits_list, dtype=torch.float32)
-    probs = F.softmax(t_logits, dim=-1)
-
-    # Get top-k probabilities and indices
-    top_k_probs, top_k_indices = torch.topk(probs, top_k)
-    top_k_probs = top_k_probs / top_k_probs.sum()
-
-    # Assign minimum frequency of 1 to all top-k tokens
-    freqs = torch.ones(top_k, dtype=torch.int32)
-    remaining_total = total - top_k
-
-    # Proportional allocation
-    alloc = (top_k_probs * remaining_total).to(torch.int32)
-    freqs += alloc
-
-    # Fix rounding errors by adding remainder to the highest probability token
-    remainder = total - freqs.sum().item()
-    freqs[0] += remainder
-
-    # Ensure no zero frequencies (already handled by ones) and total is correct
-    assert freqs.sum().item() == total
-
-    return top_k_indices.tolist(), FrequencyTable(freqs.tolist())
-
-
-def hide_bits(backend: TransformersBackend, prompt: str, bits: CodedBits) -> list[int]:
-    """Hide bits in generated text (Sender)."""
-    token_ids = backend.tokenize(prompt)
-    decoder = RangeDecoder(bits)
-    generated = []
-
-    print(f"Hiding {bits.bit_length} bits...")
-
-    while True:
-        if decoder._reader._position > bits.bit_length + 32:
-            break
-
-        try:
-            logits = backend.next_logits(token_ids)
-            indices, table = get_frequencies(list(logits))
-
-            # Decode one symbol from the secret bits using the LLM distribution
-            symbol_index = decoder.decode(table)
-            token_id = indices[symbol_index]
-
-            token_ids.append(token_id)
-            generated.append(token_id)
-
-        except Exception as e:
-            print(f"Error during hiding: {e}")
-            break
-
-    return generated
-
-
-def extract_bits(backend: TransformersBackend, prompt: str, cover_tokens: list[int]) -> CodedBits:
-    """Extract bits from generated text (Receiver)."""
-    token_ids = backend.tokenize(prompt)
-    encoder = RangeEncoder()
-
-    print(f"Extracting from {len(cover_tokens)} tokens...")
-
-    for token_id in cover_tokens:
-        logits = backend.next_logits(token_ids)
-        indices, table = get_frequencies(list(logits))
-
-        if token_id not in indices:
-            raise RuntimeError("Cover token not in top-k! Cannot extract.")
-
-        symbol_index = indices.index(token_id)
-        encoder.encode(table, symbol_index)
-        token_ids.append(token_id)
-
-    return encoder.finish()
-
-
-def main():  # type: ignore
-    parser = argparse.ArgumentParser()
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--key-file", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    args = parser.parse_args()
+    parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    parser.add_argument("--top-k", type=int, default=64)
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--max-tokens", type=int, default=1024)
+    return parser
 
-    # 1. Setup
+
+def main() -> int:
+    args = build_parser().parse_args()
+    master_key = read_master_key(args.key_file)
+    stego_key = derive_keys(master_key).steganography
     manifest = ModelManifest.from_path(args.manifest)
-    backend = TransformersBackend.load(manifest, cache_dir=DEFAULT_CACHE, local_files_only=True)
+    backend = TransformersBackend.load(
+        manifest,
+        cache_dir=args.cache_dir,
+        local_files_only=True,
+    )
+    config = SteganographyConfig(
+        top_k=args.top_k,
+        temperature=args.temperature,
+        excluded_token_ids=_QWEN_CONTROL_TOKENS,
+    )
 
-    secret_text = "極秘：今夜の会議は中止、明日10時にカフェで。"  # noqa: RUF001
-    print(f"Secret: {secret_text}")
+    encoded = encode_secure_text_payload(_SYNTHETIC_SECRET, master_key)
 
-    # 2. Mock Secret LLM Compression with zlib for the spike
-    compressed = zlib.compress(secret_text.encode("utf-8"), level=9)
-    bits = CodedBits(compressed, len(compressed) * 8)
-    print(f"Compressed size: {bits.bit_length} bits")
+    started = time.perf_counter()
+    cover_ids = hide_bytes(
+        backend,
+        _DEFAULT_PROMPT,
+        encoded.frame,
+        stego_key=stego_key,
+        config=config,
+        max_tokens=args.max_tokens,
+    )
+    encode_seconds = time.perf_counter() - started
+    cover_text = backend.detokenize(cover_ids)
 
-    # 3. Hide
-    prompt = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
-    cover_tokens = hide_bits(backend, prompt, bits)
-    cover_text = backend.detokenize(cover_tokens)
-    print(f"\n--- Cover Text ---\n{prompt}{cover_text}\n------------------\n")
+    # Simulate transport through a plain Unicode string.  Token identity must
+    # survive this boundary or receiver-side logits diverge immediately.
+    received_ids = backend.tokenize(cover_text)
+    if received_ids != cover_ids:
+        print("FAILED: tokenizer transport changed generated token IDs", file=sys.stderr)
+        return 1
 
-    # 4. Extract
-    extracted_bits = extract_bits(backend, prompt, cover_tokens)
+    started = time.perf_counter()
+    recovered_frame = extract_bytes(
+        backend,
+        _DEFAULT_PROMPT,
+        received_ids,
+        len(encoded.frame),
+        stego_key=stego_key,
+        config=config,
+    )
+    recovered_secret = decode_secure_text_payload(recovered_frame, master_key)
+    decode_seconds = time.perf_counter() - started
 
-    # The extracted bits might have extra 0s padded at the end due to RangeDecoder consuming more bits.  # noqa: E501
-    # In real implementation we use a termination symbol or length header.
-    # For spike, we just truncate to the original bytes.
-    extracted_bytes = extracted_bits.data[: len(compressed)]
+    if recovered_secret != _SYNTHETIC_SECRET:
+        print("FAILED: recovered secret differs from the synthetic input", file=sys.stderr)
+        return 1
 
-    try:
-        recovered = zlib.decompress(extracted_bytes).decode("utf-8")
-        print(f"Recovered: {recovered}")
-        if recovered == secret_text:
-            print("SUCCESS: Secret perfectly recovered!")
-        else:
-            print("FAILED: Mismatch.")
-    except Exception as e:
-        print(f"FAILED to decompress: {e}")
+    print("SUCCESS: Phase-7 secure payload round-trip completed")
+    print(f"encrypted payload: {len(encoded.frame) * 8} bits")
+    print(f"cover: {len(cover_text)} Unicode code points / {len(cover_ids)} tokens")
+    print(f"encode: {encode_seconds:.2f} s")
+    print(f"decode: {decode_seconds:.2f} s")
+    print("--- cover text ---")
+    print(cover_text)
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # type: ignore
+    raise SystemExit(main())

@@ -306,7 +306,7 @@
       "id": "5B",
       "name": "Prompt/T/model sweep (Phase 5B)",
       "status": "completed",
-      "summary": "架空のニュース記事プロンプトによりp10が435.3 bitsへ大幅改善。",
+      "summary": "raw LM entropyではニュースpromptによりp10が435.3 bitsへ改善。実channel値は再測定待ち。",
       "exit_criterion": "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
       "evidence": [],
       "artifacts": []

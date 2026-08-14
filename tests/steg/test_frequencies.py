@@ -87,6 +87,17 @@ class TestLogitsToFrequencyTable:
         _, table = logits_to_frequency_table(_uniform_logits(500), top_k=16, total=256)
         assert table.total == 256
 
+    def test_temperature_changes_integer_distribution(self) -> None:
+        logits = [8.0, 4.0, 2.0, 1.0, 0.0]
+        _, cold = logits_to_frequency_table(logits, top_k=5, total=1024, temperature=0.7)
+        _, hot = logits_to_frequency_table(logits, top_k=5, total=1024, temperature=1.3)
+        assert cold.frequencies != hot.frequencies
+        assert max(cold.frequencies) > max(hot.frequencies)
+
+    def test_invalid_temperature_rejected(self) -> None:
+        with pytest.raises(ValueError, match="temperature"):
+            logits_to_frequency_table(_uniform_logits(10), top_k=5, temperature=0.0)
+
     def test_top_k_equals_vocab_size(self) -> None:
         vocab_size = 100
         top_ids, table = logits_to_frequency_table(_uniform_logits(vocab_size), top_k=vocab_size)
@@ -117,6 +128,27 @@ class TestLogitsToFrequencyTable:
         top_ids, _ = logits_to_frequency_table(logits, top_k=5, total=10)
         assert top_ids == sorted(top_ids)
 
+    def test_excluded_token_ids_are_skipped(self) -> None:
+        logits = _peaked_logits(20, peak_token=3, scale=50.0)
+        top_ids, table = logits_to_frequency_table(
+            logits,
+            top_k=5,
+            total=32,
+            excluded_token_ids=(3, 4),
+        )
+        assert 3 not in top_ids
+        assert 4 not in top_ids
+        assert len(top_ids) == 5
+        assert table.total == 32
+
+    def test_exclusion_can_reduce_available_vocabulary_below_top_k(self) -> None:
+        with pytest.raises(ValueError, match="available vocabulary size"):
+            logits_to_frequency_table(
+                _uniform_logits(5),
+                top_k=4,
+                excluded_token_ids=(0, 1),
+            )
+
     def test_frequency_allocation_sum_invariant_random(self) -> None:
         rng = random.Random(2024)
         for _ in range(50):
@@ -135,6 +167,8 @@ class TestSteganographyConfig:
         cfg = SteganographyConfig()
         assert cfg.top_k == DEFAULT_TOP_K
         assert cfg.frequency_total == FREQUENCY_TOTAL
+        assert cfg.excluded_token_ids == ()
+        assert cfg.temperature == 1.0
 
     def test_invalid_top_k(self) -> None:
         from lsteg.steg.engine import SteganographyConfig
@@ -147,3 +181,15 @@ class TestSteganographyConfig:
 
         with pytest.raises(ValueError, match="frequency_total must be"):
             SteganographyConfig(frequency_total=MAX_FREQUENCY_TOTAL + 1)
+
+    def test_excluded_tokens_must_be_unique(self) -> None:
+        from lsteg.steg.engine import SteganographyConfig
+
+        with pytest.raises(ValueError, match="duplicates"):
+            SteganographyConfig(excluded_token_ids=(1, 1))
+
+    def test_invalid_config_temperature(self) -> None:
+        from lsteg.steg.engine import SteganographyConfig
+
+        with pytest.raises(ValueError, match="temperature"):
+            SteganographyConfig(temperature=0.0)

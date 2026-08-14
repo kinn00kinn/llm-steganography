@@ -2,7 +2,7 @@
 
 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
 
-現在地: **Phase 4 完了、Phase 5 着手前**。
+現在地: **Phase 6 mock channel完了、Phase 6.5/7の実モデル検証待ち**。
 
 GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
 表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit
@@ -140,7 +140,7 @@ artifact/runtime/numeric boundaryは`docs/adr/004-pinned-model-backend-v1.md`に
 単なる平均ではなく、各サンプルの $\frac{\sum H_t}{\text{Unicode chars}}$ を直接計算し、p10などの分布を出す。また、`enable_thinking=False` と全語彙(`top_k=0`, `top_p=1.0`) を明示的に設定する。
 
 ### Phase 5B: Prompt / T / model sweep
-temperatureやプロンプト（日記、雑談、旅行記など）を変更し、自然さを損なわずに `bits/char` が最大化される設定を探索する。
+temperatureやプロンプト（日記、雑談、旅行記など）を変更し、自然さを損なわずに `bits/char` が最大化される設定を探索する。初期のp10=435.3 bitsはraw LM entropyに基づくため、Phase 7で実際のtop-k・temperature・integer quantizationを通したchannel capacityを再測定する。
 
 ### Phase 5C: Secret LM compression
 100文字の代表的な秘密文100件について、LLMでlossless圧縮した場合（$- \sum \log_2 P(\text{token})$）の実測bit数を測定し、UTF-8やzlib/brotli等と比較する。数百bit程度に落ちるかを確認する。
@@ -191,8 +191,20 @@ Phase 5での実測に基づき、本プロジェクトのステガノグラフ�
      日本語500文字
 ```
 
-この構造により、秘密文は「意味圧縮（lossless）」されて極小のbit列となり、暗号化を経てカバーテキストの分布に埋め込まれる。
-Phase 6ではまず 1-bit/token spike で context、tokenizer、prompt、keyed mapping の同期を検証する。Phase 7で上記のDual-LLMパイプラインを結合し、Phase 8で100文字秘密文の500文字カバーへの完全往復試験を行う。
+この構造により、秘密文は言語モデル予測を用いて可逆圧縮され、暗号化を経てカバーテキストの分布に埋め込まれる。
+Phase 6ではmock backend上でcanonical Range streamのhide/extractとtokenizer transportを検証した。Phase 7では`K_stego`によるcontext-bound candidate permutationとarbitrary-byte channelを実LLMへ接続し、短いencrypted payloadの完全往復を確認する。Phase 8でSecret-side LM compressionを含むDual-LLMパイプラインを結合し、100文字秘密文の500文字カバーへの完全往復試験を行う。
+
+### Phase 6/7 channel implementation status
+
+- canonical `CodedBits` のmock hide/extract round-trip: 完了
+- tokenizer text transportのmock test: 完了
+- `K_stego` HMAC-SHA256 candidate permutation: 実装済み
+- arbitrary bytes用 `hide_bytes` / `extract_bytes`: mock test完了
+- EOS/control tokenはconfigから除外し、payload未完了のearly stopは禁止
+- Qwen3実モデルのtext transport / arbitrary-byte smoke test: GPU環境での実行待ち
+- encrypted secure-frameの長さ自己復元: Phase 7後半で実装予定
+
+詳細は`docs/adr/005-keyed-cover-channel-v1.md`を参照する。
 
 ## Phase 9–12 — 品質、再現性、UI、配備
 

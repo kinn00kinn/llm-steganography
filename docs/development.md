@@ -118,3 +118,32 @@ PyTorchは公式CUDA 13.0 index、その他のpackageはPyPIから解決する�
 2026-08-14 時点で、system Python 3.12.10 と uv 0.11.32 が利用可能。pyenv は未導入。
 本 repository は uv だけでセットアップできるため、global な PATH や Python installation
 を変更せずに作業を開始できる。
+
+## 8. Phase 6.5 / 7 GPU verification
+
+固定Qwen artifactを取得済みのRTX 4060環境では、まず実装済みfrequency policyの
+容量を直接測定する。raw LM entropyだけをGO/NO-GO判定に使わない。
+
+```powershell
+uv run --extra model python scripts/probe_channel_capacity.py --local-files-only --samples 100
+```
+
+その後、通常CIとは分けて以下を実行する。
+
+```powershell
+$env:LSTEG_RUN_MODEL_TESTS = "1"
+uv run --extra model pytest tests/steg/test_tokenizer_transport.py -v
+```
+
+このtestは、top-k候補のUnicode transport、canonical coded stream、arbitrary-byte
+channelの順に確認する。Qwen3のcontrol token `(151643, 151644, 151645)` はactive alphabetから
+除外する。payloadがsettleする前のEOSによるearly stopは成功扱いにしない。
+
+shared-key secure payloadまで同一processで確認する場合:
+
+```powershell
+uv run steg keygen --output shared.key
+uv run --extra model python scripts/demo_e2e_steg.py --key-file shared.key
+```
+
+`shared.key`、secret plaintext、derived key bytesはbenchmark/logへ出力しない。
