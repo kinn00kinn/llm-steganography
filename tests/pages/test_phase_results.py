@@ -9,6 +9,7 @@ from lsteg.payload import decode_text_payload
 from lsteg.reporting.phase_results import (
     DEFAULT_OUTPUT,
     PHASE_ONE_COMMIT,
+    PHASE_TWO_COMMIT,
     PHASE_ZERO_COMMIT,
     JsonObject,
     JsonValue,
@@ -49,17 +50,23 @@ def test_phase_statuses_are_contiguous_and_honest() -> None:
     phases = cast(list[JsonObject], document["phases"])
 
     assert [phase["id"] for phase in phases] == list(range(13))
-    assert [phase["status"] for phase in phases[:3]] == ["completed", "completed", "next"]
-    assert all(phase["status"] == "planned" for phase in phases[3:])
+    assert [phase["status"] for phase in phases[:4]] == [
+        "completed",
+        "completed",
+        "completed",
+        "next",
+    ]
+    assert all(phase["status"] == "planned" for phase in phases[4:])
     assert phases[0]["commit"] == PHASE_ZERO_COMMIT
     assert phases[1]["commit"] == PHASE_ONE_COMMIT
+    assert phases[2]["commit"] == PHASE_TWO_COMMIT
 
 
 def test_completed_phase_artifacts_exist_and_link_to_fixed_commits() -> None:
     document = build_document()
     phases = cast(list[JsonObject], document["phases"])
 
-    for phase in phases[:2]:
+    for phase in phases[:3]:
         commit = cast(str, phase["commit"])
         artifacts = cast(list[JsonObject], phase["artifacts"])
         assert artifacts
@@ -82,6 +89,10 @@ def test_every_public_sample_is_an_exact_decodable_round_trip() -> None:
         assert sample["restored_text"] == sample["normalized_text"]
         assert sample["exact_match"] is True
         assert len(frame) == cast(JsonObject, sample["metrics"])["frame_bytes"]
+        secure_metrics = cast(JsonObject, sample["secure_metrics"])
+        assert secure_metrics["algorithm"] == "XChaCha20-Poly1305"
+        assert secure_metrics["authenticated"] is True
+        assert secure_metrics["overhead_bytes"] == 50
 
 
 def test_publication_mode_has_no_runtime_or_real_secrets() -> None:
@@ -133,7 +144,7 @@ def test_static_site_prioritizes_current_results_and_progressive_disclosure() ->
     assert 'id="phases"' in html
     assert 'class="planned-phases"' in html
     assert "文章への埋め込みはまだ未実装" in html
-    assert "versioned frameを表示" in javascript
+    assert "inner frameを表示" in javascript
     assert 'setAttribute("aria-pressed"' in javascript
 
     assert "status-console" not in html

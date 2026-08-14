@@ -94,8 +94,8 @@ development dependency:
 uv add --dev PACKAGE
 ```
 
-手で `uv.lock` を編集しない。暗号 library は Phase 2、PyTorch/Transformers と model
-artifact は Phase 4 で、採用理由と version pin を伴って追加する。GPU package は OS と
+手で `uv.lock` を編集しない。Phase 2の暗号libraryはPyNaClとcryptographyに固定した。
+PyTorch/Transformersとmodel artifactはPhase 4で、採用理由とversion pinを伴って追加する。GPU packageはOSと
 CUDA の組合せがあるため、通常の CPU-only test dependency から分離する。
 
 ## 6. test policy

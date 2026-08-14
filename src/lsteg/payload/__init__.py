@@ -1,4 +1,4 @@
-"""Text payload normalization, compression, and framing."""
+"""Text payload normalization, framing, key management, and authentication."""
 
 from lsteg.payload.codec import (
     MAX_SECRET_CODE_POINTS,
@@ -9,28 +9,88 @@ from lsteg.payload.codec import (
     encode_text_payload,
     normalize_secret,
 )
+from lsteg.payload.crypto import (
+    MAX_SECURE_FRAME_SIZE,
+    EncodedSecureTextPayload,
+    SecurePayloadMetrics,
+    decode_secure_text_payload,
+    decrypt_payload_frame,
+    encode_secure_text_payload,
+    encrypt_payload_frame,
+)
 from lsteg.payload.errors import (
+    AuthenticationError,
+    InvalidMasterKeyError,
     InvalidSecretTextError,
+    KeyFileExistsError,
+    KeyFileWriteError,
+    KeyManagementError,
     MalformedPayloadError,
     PayloadCodecError,
     SecretTooLongError,
+    UnsupportedPayloadAlgorithmError,
     UnsupportedPayloadVersionError,
 )
 from lsteg.payload.framing import TEXT_FRAME_VERSION, CompressionMethod
+from lsteg.payload.keys import (
+    MASTER_KEY_FILE_SIZE,
+    MASTER_KEY_FILE_VERSION,
+    MASTER_KEY_SIZE,
+    DerivedKeys,
+    create_master_key_file,
+    derive_keys,
+    generate_master_key,
+    parse_master_key_file,
+    read_master_key,
+    serialize_master_key,
+    validate_master_key,
+)
+from lsteg.payload.secure_framing import (
+    SECURE_FRAME_VERSION,
+    SECURE_NONCE_SIZE,
+    EncryptionAlgorithm,
+)
 
 __all__ = [
+    "MASTER_KEY_FILE_SIZE",
+    "MASTER_KEY_FILE_VERSION",
+    "MASTER_KEY_SIZE",
     "MAX_SECRET_CODE_POINTS",
     "MAX_SECRET_UTF8_BYTES",
+    "MAX_SECURE_FRAME_SIZE",
+    "SECURE_FRAME_VERSION",
+    "SECURE_NONCE_SIZE",
     "TEXT_FRAME_VERSION",
+    "AuthenticationError",
     "CompressionMethod",
+    "DerivedKeys",
+    "EncodedSecureTextPayload",
     "EncodedTextPayload",
+    "EncryptionAlgorithm",
+    "InvalidMasterKeyError",
     "InvalidSecretTextError",
+    "KeyFileExistsError",
+    "KeyFileWriteError",
+    "KeyManagementError",
     "MalformedPayloadError",
     "PayloadCodecError",
     "PayloadMetrics",
     "SecretTooLongError",
+    "SecurePayloadMetrics",
+    "UnsupportedPayloadAlgorithmError",
     "UnsupportedPayloadVersionError",
+    "create_master_key_file",
+    "decode_secure_text_payload",
     "decode_text_payload",
+    "decrypt_payload_frame",
+    "derive_keys",
+    "encode_secure_text_payload",
     "encode_text_payload",
+    "encrypt_payload_frame",
+    "generate_master_key",
     "normalize_secret",
+    "parse_master_key_file",
+    "read_master_key",
+    "serialize_master_key",
+    "validate_master_key",
 ]

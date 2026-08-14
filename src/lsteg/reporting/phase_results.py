@@ -7,7 +7,13 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from lsteg.payload import decode_text_payload, encode_text_payload
+from lsteg.payload import (
+    decode_secure_text_payload,
+    decode_text_payload,
+    encode_secure_text_payload,
+    encode_text_payload,
+    generate_master_key,
+)
 
 type JsonValue = bool | int | float | str | list[JsonValue] | dict[str, JsonValue] | None
 type JsonObject = dict[str, JsonValue]
@@ -19,6 +25,7 @@ DEFAULT_OUTPUT = PROJECT_ROOT / "pages" / "data" / "phase-results.json"
 
 PHASE_ZERO_COMMIT = "95a1e4e5019241123e1c7483c9f1a6d2614a42f8"
 PHASE_ONE_COMMIT = "60178e9879c36b80e4ecdb525e4d6ce8a1bba437"
+PHASE_TWO_COMMIT = "da6846a37341bd768a09436dc1a94bcb2756fa40"
 
 PUBLIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
     ("raw-short", "短い秘密文", "秘密"),
@@ -115,18 +122,39 @@ def _build_phases() -> list[JsonValue]:
         ),
     ]
 
-    later_phases = [
-        _phase(
-            2,
-            "共有鍵・AEAD",
-            "next",
-            "key generation、key separation、authenticated encryptionを追加。",
-            "正しい鍵で復元し、wrong key・改ざん・truncationを拒否する。",
+    phase_two = _phase(
+        2,
+        "共有鍵・AEAD",
+        "completed",
+        "用途分離した共有鍵とXChaCha20-Poly1305でpayloadを暗号化・認証。",
+        "正しい鍵で復元し、wrong key・改ざん・truncationを拒否する。",
+    )
+    phase_two["commit"] = PHASE_TWO_COMMIT
+    phase_two["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_TWO_COMMIT}"
+    phase_two["pull_request_url"] = f"{REPOSITORY_URL}/pull/5"
+    phase_two["evidence"] = [
+        {"label": "Core test suite", "value": "93 passed"},
+        {"label": "Secure round-trips", "value": "500"},
+        {"label": "Unique nonce trials", "value": "256 / 256"},
+        {"label": "Secure overhead", "value": "50 bytes"},
+    ]
+    phase_two["artifacts"] = [
+        _artifact("Authenticated payload", "src/lsteg/payload/crypto.py", PHASE_TWO_COMMIT),
+        _artifact("Key management", "src/lsteg/payload/keys.py", PHASE_TWO_COMMIT),
+        _artifact("Secure framing", "src/lsteg/payload/secure_framing.py", PHASE_TWO_COMMIT),
+        _artifact("Crypto tests", "tests/payload/test_crypto.py", PHASE_TWO_COMMIT),
+        _artifact(
+            "Security decision",
+            "docs/adr/002-shared-key-aead-v1.md",
+            PHASE_TWO_COMMIT,
         ),
+    ]
+
+    later_phases = [
         _phase(
             3,
             "Integer Range Coder",
-            "planned",
+            "next",
             "LLMなしでinteger frequencyとfinite payloadを相互変換。",
             "1 byteから10 KiBまで数千ケースを完全復元する。",
         ),
@@ -194,12 +222,17 @@ def _build_phases() -> list[JsonValue]:
             "固定manifestのsample siteとlocal runtimeを個別検証する。",
         ),
     ]
-    return [phase_zero, phase_one, *later_phases]
+    return [phase_zero, phase_one, phase_two, *later_phases]
 
 
 def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
     encoded = encode_text_payload(secret_text)
-    restored = decode_text_payload(encoded.frame)
+    inner_restored = decode_text_payload(encoded.frame)
+    if inner_restored != encoded.normalized_text:  # pragma: no cover - codec invariant
+        raise RuntimeError("public sample inner payload did not round-trip")
+    sample_master_key = generate_master_key()
+    secure = encode_secure_text_payload(secret_text, sample_master_key)
+    restored = decode_secure_text_payload(secure.frame, sample_master_key)
     metrics = encoded.metrics
     return {
         "id": sample_id,
@@ -222,6 +255,13 @@ def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
             "bytes_saved": metrics.bytes_saved,
             "compression_ratio": metrics.compression_ratio,
         },
+        "secure_metrics": {
+            "algorithm": "XChaCha20-Poly1305",
+            "frame_bytes": secure.secure_metrics.secure_frame_bytes,
+            "frame_bits": secure.secure_metrics.secure_frame_bits,
+            "overhead_bytes": secure.secure_metrics.overhead_bytes,
+            "authenticated": True,
+        },
         "frame_hex": encoded.frame.hex(),
     }
 
@@ -237,8 +277,8 @@ def build_document() -> JsonObject:
             "name": "llm-steganography",
             "repository": REPOSITORY,
             "repository_url": REPOSITORY_URL,
-            "last_completed_phase": 1,
-            "next_phase": 2,
+            "last_completed_phase": 2,
+            "next_phase": 3,
         },
         "publication": {
             "mode": "static_pre_generated_samples",
@@ -247,9 +287,10 @@ def build_document() -> JsonObject:
             "contains_real_secrets": False,
         },
         "summary": {
-            "completed_phases": 2,
+            "completed_phases": 3,
             "phase_one_tests": 48,
             "seeded_round_trips": 1_000,
+            "secure_round_trips": 500,
             "public_samples": len(samples),
         },
         "phases": _build_phases(),

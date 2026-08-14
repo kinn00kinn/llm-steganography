@@ -7,9 +7,9 @@
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
-**Phase 1: text payload codec** まで完了しています。LLM や暗号処理を急いで結合せず、
-payload、暗号、整数 Range Coding、モデル推論を独立に実装・検証します。次は Phase 2 の
-共有鍵、AEAD、secure framing です。
+**Phase 2: shared-key payload** まで完了しています。LLMと暗号処理を急いで結合せず、
+payload、暗号、integer Range Coding、model推論を独立に実装・検証します。次はPhase 3の
+integer Range Coderです。
 
 ## 目標
 
@@ -38,8 +38,13 @@ uv run mypy src tests
 uv run steg --help
 ```
 
-`keygen`、`encode`、`decode`、`benchmark` は Phase 0 では意図的に
-stub です。インターフェースだけを先に固定しています。
+`keygen`は実装済みです。既存fileを上書きせず、key materialを標準出力へ表示しません。
+
+```powershell
+uv run steg keygen --output shared.key
+```
+
+`encode`、`decode`、`benchmark`は、対応するend-to-end phaseまで意図的にstubです。
 
 pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version` が
 同じ Python バージョンを選択します。詳しくは
@@ -54,6 +59,7 @@ pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version
 - [Web UI・比較可視化](docs/web-ui.md)
 - [意思決定ログ](docs/decisions.md)
 - [ADR-001: text payload frame v1](docs/adr/001-text-payload-frame-v1.md)
+- [ADR-002: shared-key and AEAD envelope v1](docs/adr/002-shared-key-aead-v1.md)
 - [コントリビューション規約](CONTRIBUTING.md)
 - [初期メモ](first.md)
 
@@ -69,7 +75,7 @@ squash merge します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照�
 redaction済みのsynthetic sampleだけを静的配信し、Pages上での秘密文入力、鍵入力、
 Python/LLM推論、API接続は行いません。
 
-Phase 0/1のprogress viewerは公開済みです。各数値は`pages/data/phase-results.json`として
+Phase 0〜2のprogress viewerを公開します。各数値は`pages/data/phase-results.json`として
 commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と一致することをCIで
 検証します。最終的なcontrol/stego比較は実装が成立するPhase 6以降に追加します。
 
@@ -77,7 +83,7 @@ commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と�
 
 ```text
 src/lsteg/
-  payload/    # 正規化、圧縮、framing（Phase 1 実装済み）、暗号
+  payload/    # 正規化、圧縮、framing、鍵導出、AEAD（Phase 2 実装済み）
   coding/     # integer frequencies と Range Coding
   model/      # tokenizer / LLM backend
   stego/      # 各層を結合する encoder / decoder
@@ -87,18 +93,24 @@ src/lsteg/
 各ディレクトリは、対応する Phase に入るときに追加します。先行して空の構造を
 量産せず、テストと一緒に実装します。
 
-## Phase 1 API
+## Phase 2 API
 
 ```python
-from lsteg.payload import decode_text_payload, encode_text_payload
+from lsteg.payload import (
+    create_master_key_file,
+    decode_secure_text_payload,
+    encode_secure_text_payload,
+    read_master_key,
+)
 
-encoded = encode_text_payload("e\u0301 を含む秘密")
-assert decode_text_payload(encoded.frame) == encoded.normalized_text
+create_master_key_file("shared.key")
+key = read_master_key("shared.key")
+encoded = encode_secure_text_payload("e\u0301 を含む秘密", key)
+assert decode_secure_text_payload(encoded.frame, key) == encoded.normalized_text
 
-print(encoded.metrics.raw_bits)
-print(encoded.metrics.frame_bits)
-print(encoded.metrics.compression.name)
+print(encoded.text_metrics.raw_bits)
+print(encoded.secure_metrics.secure_frame_bits)
 ```
 
-このframeはまだ暗号化・認証されていないinner payloadです。機密用途には使用せず、
-Phase 2 でAEAD envelopeに格納します。
+master keyは32 bytesで、暗号用と将来のstego用subkeyへ用途分離します。secure frameは
+XChaCha20-Poly1305で暗号化・認証され、wrong keyと改ざんを同じ認証失敗として拒否します。

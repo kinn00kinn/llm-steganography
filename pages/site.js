@@ -185,9 +185,9 @@ function renderSample(sample) {
 
   const metrics = createElement("dl", "sample-metrics");
   const metricValues = [
-    ["圧縮方式", sample.compression],
+    ["暗号", sample.secure_metrics.algorithm],
     ["元データ", `${formatNumber(sample.metrics.raw_bytes)} bytes`],
-    ["フレーム", `${formatNumber(sample.metrics.frame_bits)} bits`],
+    ["暗号化後", `${formatNumber(sample.secure_metrics.frame_bits)} bits`],
   ];
   metricValues.forEach(([label, value]) => {
     const item = createElement("div", "");
@@ -210,7 +210,11 @@ function renderSample(sample) {
 
   const frame = createElement("details", "frame-details");
   frame.append(
-    createElement("summary", "", "技術情報：versioned frameを表示"),
+    createElement(
+      "summary",
+      "",
+      `技術情報：暗号化前のinner frameを表示（${sample.compression}）`,
+    ),
     createElement("code", "", sample.frame_hex),
   );
   detail.append(frame);
