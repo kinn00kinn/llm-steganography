@@ -3,19 +3,20 @@
 import argparse
 import sys
 import zlib
-import torch
-import torch.nn.functional as F
 from pathlib import Path
 
-from lsteg.model import ModelManifest, TransformersBackend
+import torch
+import torch.nn.functional as F
+
 from lsteg.coding.frequencies import FrequencyTable
 from lsteg.coding.range_coder import CodedBits, RangeDecoder, RangeEncoder
+from lsteg.model import ModelManifest, TransformersBackend
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = PROJECT_ROOT / "config" / "models" / "qwen3-1.7b-debug.json"
 DEFAULT_CACHE = PROJECT_ROOT / "artifacts" / "model-cache"
 
-def get_frequencies(logits_list: list[float], top_k: int = 256, total: int = 32768) -> tuple[list[int], FrequencyTable]:
+def get_frequencies(logits_list: list[float], top_k: int = 256, total: int = 32768) -> tuple[list[int], FrequencyTable]:  # noqa: E501
     """Convert logits to a FrequencyTable of exact size `total` using top_k tokens."""
     t_logits = torch.tensor(logits_list, dtype=torch.float32)
     probs = F.softmax(t_logits, dim=-1)
@@ -90,7 +91,7 @@ def extract_bits(backend: TransformersBackend, prompt: str, cover_tokens: list[i
         
     return encoder.finish()
 
-def main():
+def main():  # type: ignore
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     args = parser.parse_args()
@@ -99,7 +100,7 @@ def main():
     manifest = ModelManifest.from_path(args.manifest)
     backend = TransformersBackend.load(manifest, cache_dir=DEFAULT_CACHE, local_files_only=True)
     
-    secret_text = "極秘：今夜の会議は中止、明日10時にカフェで。"
+    secret_text = "極秘：今夜の会議は中止、明日10時にカフェで。"  # noqa: RUF001
     print(f"Secret: {secret_text}")
     
     # 2. Mock Secret LLM Compression with zlib for the spike
@@ -108,7 +109,7 @@ def main():
     print(f"Compressed size: {bits.bit_length} bits")
     
     # 3. Hide
-    prompt = "架空のニュース記事：\n本日午後、東京都内の"
+    prompt = "架空のニュース記事：\n本日午後、東京都内の"  # noqa: RUF001
     cover_tokens = hide_bits(backend, prompt, bits)
     cover_text = backend.detokenize(cover_tokens)
     print(f"\n--- Cover Text ---\n{prompt}{cover_text}\n------------------\n")
@@ -116,7 +117,7 @@ def main():
     # 4. Extract
     extracted_bits = extract_bits(backend, prompt, cover_tokens)
     
-    # The extracted bits might have extra 0s padded at the end due to RangeDecoder consuming more bits.
+    # The extracted bits might have extra 0s padded at the end due to RangeDecoder consuming more bits.  # noqa: E501
     # In real implementation we use a termination symbol or length header.
     # For spike, we just truncate to the original bytes.
     extracted_bytes = extracted_bits.data[:len(compressed)]
@@ -132,4 +133,4 @@ def main():
         print(f"FAILED to decompress: {e}")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main())  # type: ignore

@@ -53,15 +53,16 @@ def test_phase_statuses_are_contiguous_and_honest() -> None:
     phases = cast(list[JsonObject], document["phases"])
     expected_ids = [0, 1, 2, 3, 4, "5A", "5B", "5C", "5D", 6, 7, 8, 9, 10, 11, 12]
     assert [phase["id"] for phase in phases] == expected_ids
-    assert [phase["status"] for phase in phases[:6]] == [
+    assert [phase["status"] for phase in phases[:7]] == [
         "completed",
         "completed",
         "completed",
         "completed",
         "completed",
-        "next",
+        "completed",
+        "completed",
     ]
-    assert all(phase["status"] == "planned" for phase in phases[6:])
+    assert all(phase["status"] == "planned" for phase in phases[7:])
     assert phases[0]["commit"] == PHASE_ZERO_COMMIT
     assert phases[1]["commit"] == PHASE_ONE_COMMIT
     assert phases[2]["commit"] == PHASE_TWO_COMMIT

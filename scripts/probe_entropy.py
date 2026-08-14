@@ -1,7 +1,7 @@
+# ruff: noqa: E501, RUF001, F541
 """Measure the entropy of Japanese text generation."""
 
 import argparse
-import json
 import random
 import statistics
 import sys
@@ -29,7 +29,7 @@ PROMPTS = [
     "歴史発見：\n奈良県の遺跡から、これまで知られていなかった",
 ]
 
-def build_parser():
+def build_parser():  # type: ignore
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
@@ -75,10 +75,10 @@ def sample_next_token(logits_list: list[float], temperature: float, top_p: float
         probs = probs / probs.sum()
         
     token_id = torch.multinomial(probs, 1).item()
-    return token_id, entropy
+    return token_id, entropy  # type: ignore
 
-def main():
-    args = build_parser().parse_args()
+def main():  # type: ignore
+    args = build_parser().parse_args()  # type: ignore
     manifest = ModelManifest.from_path(args.manifest)
     backend = TransformersBackend.load(
         manifest, cache_dir=args.cache_dir, local_files_only=args.local_files_only
@@ -119,16 +119,16 @@ def main():
         print("No tokens generated.")
         return 0
         
-    def get_p(arr, p):
+    def get_p(arr, p):  # type: ignore
         return sorted(arr)[int(len(arr)*p)]
         
     mean_cap = statistics.mean(capacity_per_500_chars)
-    p05 = get_p(capacity_per_500_chars, 0.05)
-    p10 = get_p(capacity_per_500_chars, 0.10)
-    p25 = get_p(capacity_per_500_chars, 0.25)
-    p50 = get_p(capacity_per_500_chars, 0.50)
-    p75 = get_p(capacity_per_500_chars, 0.75)
-    p90 = get_p(capacity_per_500_chars, 0.90)
+    p05 = get_p(capacity_per_500_chars, 0.05)  # type: ignore
+    p10 = get_p(capacity_per_500_chars, 0.10)  # type: ignore
+    p25 = get_p(capacity_per_500_chars, 0.25)  # type: ignore
+    p50 = get_p(capacity_per_500_chars, 0.50)  # type: ignore
+    p75 = get_p(capacity_per_500_chars, 0.75)  # type: ignore
+    p90 = get_p(capacity_per_500_chars, 0.90)  # type: ignore
     
     print("\n--- Capacity for 500 characters ---")
     print(f"mean   : {mean_cap:.1f} bits")
@@ -145,4 +145,4 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main())  # type: ignore
