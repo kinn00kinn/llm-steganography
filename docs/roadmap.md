@@ -2,7 +2,7 @@
 
 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
 
-現在地: **Phase 1 完了、Phase 2 着手前**。
+現在地: **Phase 2 完了、Phase 3 着手前**。
 
 GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
 表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit
@@ -64,7 +64,7 @@ criteriaは維持する。
 
 wire formatと判断理由は`docs/adr/001-text-payload-frame-v1.md`に固定した。
 
-## Phase 2 — shared-key payload
+## Phase 2 — shared-key payload（完了）
 
 実装前に AEAD/KDF/framing の ADR を追加する。master key 生成、file permissions、
 atomic/no-clobber write、nonce generation、key separation をテストする。
@@ -74,6 +74,19 @@ atomic/no-clobber write、nonce generation、key separation をテストする�
 - 正しい key で text round-trip
 - wrong key、1-bit 改変、truncation、未知 version を拒否
 - key/secret が CLI output や logs に漏れない
+
+実装結果:
+
+- libsodium CSPRNGで生成する32-byte master key
+- versioned 40-byte key file、atomic no-clobber write、owner-only mode
+- HKDF-Expand-SHA256による`K_encrypt` / `K_stego`の用途分離
+- XChaCha20-Poly1305、24-byte random nonce、16-byte authentication tag
+- 10-byte authenticated headerを持つsecure envelope v1
+- 50-byte固定overhead、最大460-byte encrypted frame
+- wrong key、1-bit改ざん、truncation、未知version/algorithmの拒否
+- `steg keygen --output PATH`の実装
+
+wire formatと判断理由は`docs/adr/002-shared-key-aead-v1.md`に固定した。
 
 ## Phase 3 — integer coding
 

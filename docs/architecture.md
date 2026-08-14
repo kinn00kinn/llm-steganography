@@ -129,8 +129,9 @@ K_master (32 bytes)
    └── K_stego    (candidate mapping only)
 ```
 
-具体的 KDF、salt/context、versioning は Phase 2 の ADR で固定する。暗号 primitive や
-KDF を独自実装しない。
+Phase 2ではHKDF-Expand-SHA256とversioned context labelで32-byte subkeyを導出する。
+暗号はXChaCha20-Poly1305、nonceは暗号化ごとにCSPRNGで生成する24 bytesとした。wire formatと
+判断理由は`docs/adr/002-shared-key-aead-v1.md`に固定する。暗号 primitiveやKDFを独自実装しない。
 
 ## 7. prompt/topic に関する制約
 

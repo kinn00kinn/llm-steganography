@@ -115,8 +115,6 @@ Phase 6 の前に、以下を ADR として決定する。
 
 1. **prompt/topic の再現方法**: 任意 topic を使う場合、decoder にも同じ情報が必要。
    固定 prompt、decode 引数、公開 header のどれを採るか。
-2. **AEAD と KDF の具体的 library/API**: XChaCha20-Poly1305 を第一候補とし、
-   nonce 管理と subkey derivation を含めて決める。
-3. **Range Coding の finite-message 規約**: length framing、termination、padding。
-4. **文字数上限の UI 定義**: code points のほか grapheme clusters も表示するか。
-5. **model baseline**: 小型デバッグ用と品質評価用の artifact/revision。
+2. **Range Coding の finite-message 規約**: length framing、termination、padding。
+3. **文字数上限の UI 定義**: code points のほか grapheme clusters も表示するか。
+4. **model baseline**: 小型デバッグ用と品質評価用の artifact/revision。

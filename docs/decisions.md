@@ -14,6 +14,7 @@
 | D-005 | control 比較は固定 manifest/seed と token-aware diff | 比較条件を再現可能にする |
 | D-006 | UI は sensitive state を永続化しない | public frontend からの漏えいを避ける |
 | D-007 | text payload frame v1 | NFC、100 code points、RAW/zlib、10-byte header |
+| D-008 | XChaCha20-Poly1305 + HKDF-Expand-SHA256 | 24-byte random nonceと用途別subkey |
 
 ## 実装前に決める事項
 
@@ -24,7 +25,6 @@
 | P0 | prompt/topic の復元 | 固定 versioned prompt で開始 | Phase 6 前 |
 | P0 | cover text の canonical transport | exact Unicode string/UTF-8、編集時は復号保証外 | Phase 6 前 |
 | P1 | experiment JSON schema | versioned、sensitive fields は既定 redaction | Phase 1～5 |
-| P2 | AEAD/KDF/nonce/key-file format | audited XChaCha20-Poly1305 + context-separated KDF | Phase 2 |
 | P3 | Range Coding termination | length-framed finite message | Phase 3 |
 | P4 | model/tokenizer license と artifact pin | debug/quality model を分離し hash 固定 | download 前 |
 | P4 | numeric determinism boundary | decoder 互換 platform を manifest で限定 | Phase 4 |
