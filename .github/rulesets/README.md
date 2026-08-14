@@ -8,7 +8,12 @@ repository 内の JSON を自動適用しないため、変更は Pull Request �
 
 - `main.json`: deletion/force-push/merge commit を禁止し、PR、最新 `quality` check、
   review conversation 解決、squash merge を要求する。
-- `branch-naming.json`: `main` と既定 prefix の短命 branch だけを許可する。
+
+branch naming は `quality` workflow の `Validate branch name` step で検査する。GitHub の
+`branch_name_pattern` metadata restriction は Enterprise organization 向けの追加 rule で、
+この個人 public repository では API が受け付けないためである。`quality` は `main` の必須
+check なので、同じ repository の不正な branch 名は merge できない。fork からの PR は
+contributor 側の branch 命名を強制しない。
 
 solo 開発中は approving review を 0 件とする。作者は自分の PR を承認できないため、1 件を
 要求すると merge 不能になる。collaborator が増えたら `required_approving_review_count` を

@@ -24,6 +24,21 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Validate branch name
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          pattern='^((feat|fix|docs|chore|research|refactor|test|ci|hotfix|release)/[a-z0-9][a-z0-9._-]*|dependabot/[A-Za-z0-9._/-]+)$'
+          if [[ ! "$BRANCH_NAME" =~ $pattern ]]; then
+            echo "Invalid branch name: $BRANCH_NAME"
+            echo "Use an allowed prefix and a lowercase description; see CONTRIBUTING.md."
+            exit 1
+          fi
+
       - name: Install uv and Python
         uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
         with:

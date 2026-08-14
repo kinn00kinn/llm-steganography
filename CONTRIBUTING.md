@@ -59,8 +59,9 @@ PR の条件:
 solo 開発中は approval 0 件で merge 可能だが、PR と CI は省略しない。collaborator が
 増えた時点で required approval を 1 件へ引き上げる。
 
-GitHub 上の enforced rules は `.github/rulesets/` の JSON と一致させる。UI だけで設定を
-変更せず、JSON を Pull Request で更新してから適用する。
+GitHub 上の `main` ruleset は `.github/rulesets/` の JSON と一致させる。UI だけで設定を
+変更せず、JSON を Pull Request で更新してから適用する。branch 名は required `quality`
+workflow で検査するため、不正な名前の同一 repository branch は merge できない。
 
 ## local quality gate
 
