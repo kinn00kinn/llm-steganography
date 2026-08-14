@@ -15,8 +15,8 @@
 | 8 | 100 文字試験 | cover 上限を 1000 から段階的に短縮 | 必要 |
 | 9 | 自然さ・capacity | reliability を保った benchmark 比較 | 必要 |
 | 10 | 再現性 hardening | PC 再起動後まで互換、artifact mismatch 検出 | 必要 |
-| 11 | API | encode/decode endpoint と key 配置設計 | 必要 |
-| 12 | Docker/deploy | 固定 manifest で別環境の互換性を検証 | 必要 |
+| 11 | Sample export/Web UI | sanitized sample schema と静的比較 viewer | 不要 |
+| 12 | Pages/Docker deploy | Pages sample site と local runtime を個別検証 | UIのみ不要 |
 
 ## Phase 0 — 開発基盤（現在）
 
@@ -86,12 +86,13 @@ sample から entropy 分布、tokens/character、総 capacity を測る。
 
 Phase 6 着手前に prompt/topic の再現方法を ADR で決定する。
 
-## Phase 9–12 — 品質、再現性、配備
+## Phase 9–12 — 品質、再現性、UI、配備
 
 normal generation と stego generation を blind comparison できる benchmark 形式にする。
-同一 process、別 process、再起動後、別端末の順で互換性を拡張する。API と Docker は
-codec が安定してから追加し、server の key は request ではなく secret file または
-secret manager から供給する。
+同一 process、別 process、再起動後、別端末の順で互換性を拡張する。Docker/local API は
+codec が安定してから追加する。GitHub Pages には、ローカルで生成・検証・redaction 済みの
+synthetic sample と静的 viewer だけを配置し、runtime backend へ接続しない。Web UI の
+詳細は `docs/web-ui.md` に従う。
 
 ## 推奨する変更単位
 

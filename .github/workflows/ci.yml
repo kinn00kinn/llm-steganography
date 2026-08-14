@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Validate branch name
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          pattern='^((feat|fix|docs|chore|research|refactor|test|ci|hotfix|release)/[a-z0-9][a-z0-9._-]*|dependabot/[A-Za-z0-9._/-]+)$'
+          if [[ ! "$BRANCH_NAME" =~ $pattern ]]; then
+            echo "Invalid branch name: $BRANCH_NAME"
+            echo "Use an allowed prefix and a lowercase description; see CONTRIBUTING.md."
+            exit 1
+          fi
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          version: "0.11.32"
+          python-version: "3.12.10"
+          enable-cache: true
+
+      - name: Synchronize locked dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run tests
+        run: uv run --frozen pytest
+
+      - name: Run lint
+        run: uv run --frozen ruff check .
+
+      - name: Verify formatting
+        run: uv run --frozen ruff format --check .
+
+      - name: Run static type checks
+        run: uv run --frozen mypy src tests

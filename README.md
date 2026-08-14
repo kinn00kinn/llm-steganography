@@ -1,5 +1,7 @@
 # llm-steganography
 
+[![CI](https://github.com/kinn00kinn/llm-steganography/actions/workflows/ci.yml/badge.svg)](https://github.com/kinn00kinn/llm-steganography/actions/workflows/ci.yml)
+
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
@@ -46,7 +48,22 @@ pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version
 - [アーキテクチャ](docs/architecture.md)
 - [実装ロードマップ](docs/roadmap.md)
 - [開発環境と日常コマンド](docs/development.md)
+- [Web UI・比較可視化](docs/web-ui.md)
+- [意思決定ログ](docs/decisions.md)
+- [コントリビューション規約](CONTRIBUTING.md)
 - [初期メモ](first.md)
+
+## Repository workflow
+
+`main` は保護対象です。作業は `feat/...`、`fix/...`、`docs/...`、
+`chore/...`、`research/...` などの短命 branch で行い、CI が通った Pull Request を
+squash merge します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+
+## Web UI の位置づけ
+
+将来、ドキュメントと比較 viewer を GitHub Pages で公開する予定です。ローカルで生成・
+検証・redaction 済みの synthetic sample だけを静的配信し、Pages 上での秘密文入力、
+鍵入力、Python/LLM 推論、API 接続は行いません。
 
 ## パッケージ構成
 
