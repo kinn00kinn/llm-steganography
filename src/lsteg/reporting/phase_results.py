@@ -214,18 +214,39 @@ def _build_phases() -> list[JsonValue]:
 
     later_phases = [
         _phase(
-            5,
-            "日本語entropy probe",
+            "5A",
+            "Cover entropy probe (Phase 5A)",
             "next",
-            "日本語coverの実測capacityを測定。",
-            "500文字目標のGO/NO-GOを実測値で判断する。",
+            "100〜1000件の生成サンプルを用いてカバーテキストの実測capacityを確定。",
+            "p10 capacityが要求水準を満たせるか判定する基準を作る。",
+        ),
+        _phase(
+            "5B",
+            "Prompt/T/model sweep (Phase 5B)",
+            "planned",
+            "temperatureやプロンプトを変更し、bits/char最大化を探索。",
+            "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
+        ),
+        _phase(
+            "5C",
+            "Secret LM compression (Phase 5C)",
+            "planned",
+            "秘密文のLLMによるlossless圧縮符号長を実測。",
+            "100文字が数百bitまで圧縮可能か検証する。",
+        ),
+        _phase(
+            "5D",
+            "End-to-end budget (Phase 5D)",
+            "planned",
+            "p90(secret+crypto) < p10(cover capacity) を判定。",
+            "500文字GO/NO-GOを最終決定する。",
         ),
         _phase(
             6,
-            "1-bit stego spike",
+            "1-bit/token spike",
             "planned",
-            "LLMを介した最小のencode/decode同期を確認。",
-            "別processでも短いpayloadを完全復元する。",
+            "process をまたぐ短い payload の完全復元。",
+            "context、tokenizer、prompt、keyed mapping の同期を検証する。",
         ),
         _phase(
             7,

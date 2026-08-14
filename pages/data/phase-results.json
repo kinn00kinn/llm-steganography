@@ -294,20 +294,47 @@
       "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/8"
     },
     {
-      "id": 5,
-      "name": "日本語entropy probe",
+      "id": "5A",
+      "name": "Cover entropy probe (Phase 5A)",
       "status": "next",
-      "summary": "日本語coverの実測capacityを測定。",
-      "exit_criterion": "500文字目標のGO/NO-GOを実測値で判断する。",
+      "summary": "100〜1000件の生成サンプルを用いてカバーテキストの実測capacityを確定。",
+      "exit_criterion": "p10 capacityが要求水準を満たせるか判定する基準を作る。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": "5B",
+      "name": "Prompt/T/model sweep (Phase 5B)",
+      "status": "planned",
+      "summary": "temperatureやプロンプトを変更し、bits/char最大化を探索。",
+      "exit_criterion": "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": "5C",
+      "name": "Secret LM compression (Phase 5C)",
+      "status": "planned",
+      "summary": "秘密文のLLMによるlossless圧縮符号長を実測。",
+      "exit_criterion": "100文字が数百bitまで圧縮可能か検証する。",
+      "evidence": [],
+      "artifacts": []
+    },
+    {
+      "id": "5D",
+      "name": "End-to-end budget (Phase 5D)",
+      "status": "planned",
+      "summary": "p90(secret+crypto) < p10(cover capacity) を判定。",
+      "exit_criterion": "500文字GO/NO-GOを最終決定する。",
       "evidence": [],
       "artifacts": []
     },
     {
       "id": 6,
-      "name": "1-bit stego spike",
+      "name": "1-bit/token spike",
       "status": "planned",
-      "summary": "LLMを介した最小のencode/decode同期を確認。",
-      "exit_criterion": "別processでも短いpayloadを完全復元する。",
+      "summary": "process をまたぐ短い payload の完全復元。",
+      "exit_criterion": "context、tokenizer、prompt、keyed mapping の同期を検証する。",
       "evidence": [],
       "artifacts": []
     },

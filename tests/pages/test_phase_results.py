@@ -51,8 +51,8 @@ def test_committed_phase_results_match_generator() -> None:
 def test_phase_statuses_are_contiguous_and_honest() -> None:
     document = build_document()
     phases = cast(list[JsonObject], document["phases"])
-
-    assert [phase["id"] for phase in phases] == list(range(13))
+    expected_ids = [0, 1, 2, 3, 4, "5A", "5B", "5C", "5D", 6, 7, 8, 9, 10, 11, 12]
+    assert [phase["id"] for phase in phases] == expected_ids
     assert [phase["status"] for phase in phases[:6]] == [
         "completed",
         "completed",

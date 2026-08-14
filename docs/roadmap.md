@@ -15,7 +15,10 @@ criteriaは維持する。
 | 2 | 共有鍵/AEAD/framing | 正常復号、wrong key/改ざん拒否、nonce test | 不要 |
 | 3 | integer Range Coder | 多様な長さを数千ケース完全復元 | 不要 |
 | 4 | model backend | 固定 model から tokenize/logits を再現 | 必要 |
-| 5 | 日本語 entropy probe | capacity report と GO/NO-GO 判断 | 必要 |
+| 5A | Cover entropy probe | Cover text 100〜1000件の p10 capacity 確定 | 必要 |
+| 5B | Prompt/T/model sweep | bits/char が最大化される設定の探索 | 必要 |
+| 5C | Secret LM compression | 100秘密文字の実測符号長の確定 (数百bit以下か) | 必要 |
+| 5D | End-to-end budget | 実測値に基づき 500文字のGO/NO-GO 判定 | 不要 |
 | 6 | 1-bit/token spike | process をまたぐ短い payload の完全復元 | 必要 |
 | 7 | LLM + Range Coding | integer frequencies で end-to-end 復元 | 必要 |
 | 8 | 100 文字試験 | cover 上限を 1000 から段階的に短縮 | 必要 |
@@ -128,13 +131,22 @@ protocolと判断理由は`docs/adr/003-integer-range-coder-v1.md`に固定し�
 
 artifact/runtime/numeric boundaryは`docs/adr/004-pinned-model-backend-v1.md`に固定した。
 
-## Phase 5 — 日本語entropy probe
+## Phase 5 — 日本語entropyとSecret LM Compression
 
-小型 model を algorithm debug 用、より大きい model を日本語品質評価用に分ける。
-artifact は name だけでなく revision/hash を固定する。Phase 5 では 100～500 程度の
-sample から entropy 分布、tokens/character、総 capacity を測る。
+現在の単純なUTF-8+汎用圧縮では100文字（約2000〜3000 bits）を500文字のカバーテキスト（実測約600 bits）に隠すことは不可能であることが判明した。目標（500文字）を緩和する前に、Secret側にもLLMを用いたlossless圧縮（Arithmetic Coding）を導入し、大幅なオーバーヘッド削減が可能か検証するため、Phase 5を以下の4つに分割する。
 
-500 cover characters で必要 bit 数に届かない場合は、ここで目標変更を提案する。
+### Phase 5A: Cover entropy benchmark
+100〜1000件の生成サンプルを用いて、カバーテキストの実測capacityを確定する。
+単なる平均ではなく、各サンプルの $\frac{\sum H_t}{\text{Unicode chars}}$ を直接計算し、p10などの分布を出す。また、`enable_thinking=False` と全語彙(`top_k=0`, `top_p=1.0`) を明示的に設定する。
+
+### Phase 5B: Prompt / T / model sweep
+temperatureやプロンプト（日記、雑談、旅行記など）を変更し、自然さを損なわずに `bits/char` が最大化される設定を探索する。
+
+### Phase 5C: Secret LM compression
+100文字の代表的な秘密文100件について、LLMでlossless圧縮した場合（$- \sum \log_2 P(\text{token})$）の実測bit数を測定し、UTF-8やzlib/brotli等と比較する。数百bit程度に落ちるかを確認する。
+
+### Phase 5D: End-to-end budget
+$p90(\text{secret payload} + \text{crypto overhead}) < p10(\text{500-char cover capacity})$ を満たせるか判定し、500文字目標でのGO/NO-GOを最終決定する。無理な場合はカバー文字数や秘密文字数の制約変更を行う。また、AES-SIVの導入など、crypto overheadの削減も検討する。
 
 ## Phase 6–8 — end-to-end steganography
 
