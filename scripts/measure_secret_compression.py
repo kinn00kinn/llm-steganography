@@ -49,7 +49,7 @@ def generate_secrets(count: int) -> list[str]:
         "来週の発表に向けて準備を進めたい。",
         "週末が待ち遠しい。",
         "充実した一日だった。",
-    ]  # noqa: E501
+    ]
 
     secrets = []
     for i in range(count):  # noqa: B007
@@ -166,8 +166,9 @@ def main():  # type: ignore
         p90 = sorted(arr)[int(len(arr) * 0.9)]
         mx = max(arr)
         print(
-            f"{name:10s}: mean={mean:6.1f}  median={median:6.1f}  p90={p90:6.1f}  max={mx:6.1f} (bits)"
-        )  # noqa: E501
+            f"{name:10s}: mean={mean:6.1f}  median={median:6.1f}  "
+            f"p90={p90:6.1f}  max={mx:6.1f} (bits)"
+        )
 
     print(f"\n--- Compression Results for 100-character Japanese secrets (N={args.samples}) ---")
     report("UTF-8 Raw", raw_bits)  # type: ignore

@@ -19,7 +19,7 @@ DEFAULT_CACHE = PROJECT_ROOT / "artifacts" / "model-cache"
 
 def get_frequencies(
     logits_list: list[float], top_k: int = 256, total: int = 32768
-) -> tuple[list[int], FrequencyTable]:  # noqa: E501
+) -> tuple[list[int], FrequencyTable]:
     """Convert logits to a FrequencyTable of exact size `total` using top_k tokens."""
     t_logits = torch.tensor(logits_list, dtype=torch.float32)
     probs = F.softmax(t_logits, dim=-1)
