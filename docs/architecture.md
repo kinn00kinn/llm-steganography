@@ -46,6 +46,11 @@ decoder が再計算するため、決定性は protocol の一部である。
 
 この層は浮動小数点確率や LLM tensor を受け取らない。
 
+Phase 3では32-bit inclusive intervalとE1/E2/E3 renormalizationを使用し、frequency totalを
+32,768以下に制限する。通常のfinite messageは14-byte headerにsymbol数と有効bit数を持つ。
+stego方向ではpayload末尾へtermination bitを加え、必要payload prefixがsettleするまでsymbolを
+生成する。詳細は`docs/adr/003-integer-range-coder-v1.md`に固定する。
+
 ### `lsteg.model`
 
 概念 interface は次のとおり。

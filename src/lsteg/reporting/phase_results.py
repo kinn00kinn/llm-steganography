@@ -26,6 +26,7 @@ DEFAULT_OUTPUT = PROJECT_ROOT / "pages" / "data" / "phase-results.json"
 PHASE_ZERO_COMMIT = "95a1e4e5019241123e1c7483c9f1a6d2614a42f8"
 PHASE_ONE_COMMIT = "60178e9879c36b80e4ecdb525e4d6ce8a1bba437"
 PHASE_TWO_COMMIT = "da6846a37341bd768a09436dc1a94bcb2756fa40"
+PHASE_THREE_COMMIT = "61035a3347f109743c6a2e5e418942c98ebe3e6f"
 
 PUBLIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
     ("raw-short", "短い秘密文", "秘密"),
@@ -150,18 +151,39 @@ def _build_phases() -> list[JsonValue]:
         ),
     ]
 
-    later_phases = [
-        _phase(
-            3,
-            "Integer Range Coder",
-            "next",
-            "LLMなしでinteger frequencyとfinite payloadを相互変換。",
-            "1 byteから10 KiBまで数千ケースを完全復元する。",
+    phase_three = _phase(
+        3,
+        "Integer Range Coder",
+        "completed",
+        "整数演算だけでpayloadと固定・動的frequency symbol列を完全往復。",
+        "1 byteから10 KiBまで数千ケースを完全復元する。",
+    )
+    phase_three["commit"] = PHASE_THREE_COMMIT
+    phase_three["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_THREE_COMMIT}"
+    phase_three["pull_request_url"] = f"{REPOSITORY_URL}/pull/7"
+    phase_three["evidence"] = [
+        {"label": "Core test suite", "value": "154 passed"},
+        {"label": "Seeded round-trips", "value": "2,000"},
+        {"label": "Largest payload", "value": "10 KiB"},
+        {"label": "Coder state", "value": "32-bit integer"},
+    ]
+    phase_three["artifacts"] = [
+        _artifact("Payload/symbol mapping", "src/lsteg/coding/codec.py", PHASE_THREE_COMMIT),
+        _artifact("Integer Range Coder", "src/lsteg/coding/range_coder.py", PHASE_THREE_COMMIT),
+        _artifact("Frequency tables", "src/lsteg/coding/frequencies.py", PHASE_THREE_COMMIT),
+        _artifact("Coding tests", "tests/coding/test_codec.py", PHASE_THREE_COMMIT),
+        _artifact(
+            "Protocol decision",
+            "docs/adr/003-integer-range-coder-v1.md",
+            PHASE_THREE_COMMIT,
         ),
+    ]
+
+    later_phases = [
         _phase(
             4,
             "Model backend",
-            "planned",
+            "next",
             "固定model/tokenizerからnext-token logitsを取得。",
             "artifact revisionを固定してlogits interfaceを再現する。",
         ),
@@ -222,7 +244,7 @@ def _build_phases() -> list[JsonValue]:
             "固定manifestのsample siteとlocal runtimeを個別検証する。",
         ),
     ]
-    return [phase_zero, phase_one, phase_two, *later_phases]
+    return [phase_zero, phase_one, phase_two, phase_three, *later_phases]
 
 
 def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
@@ -277,8 +299,8 @@ def build_document() -> JsonObject:
             "name": "llm-steganography",
             "repository": REPOSITORY,
             "repository_url": REPOSITORY_URL,
-            "last_completed_phase": 2,
-            "next_phase": 3,
+            "last_completed_phase": 3,
+            "next_phase": 4,
         },
         "publication": {
             "mode": "static_pre_generated_samples",
@@ -287,10 +309,11 @@ def build_document() -> JsonObject:
             "contains_real_secrets": False,
         },
         "summary": {
-            "completed_phases": 3,
+            "completed_phases": 4,
             "phase_one_tests": 48,
             "seeded_round_trips": 1_000,
             "secure_round_trips": 500,
+            "range_round_trips": 2_000,
             "public_samples": len(samples),
         },
         "phases": _build_phases(),

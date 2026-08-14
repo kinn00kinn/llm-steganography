@@ -4,8 +4,8 @@
     "name": "llm-steganography",
     "repository": "kinn00kinn/llm-steganography",
     "repository_url": "https://github.com/kinn00kinn/llm-steganography",
-    "last_completed_phase": 2,
-    "next_phase": 3
+    "last_completed_phase": 3,
+    "next_phase": 4
   },
   "publication": {
     "mode": "static_pre_generated_samples",
@@ -14,10 +14,11 @@
     "contains_real_secrets": false
   },
   "summary": {
-    "completed_phases": 3,
+    "completed_phases": 4,
     "phase_one_tests": 48,
     "seeded_round_trips": 1000,
     "secure_round_trips": 500,
+    "range_round_trips": 2000,
     "public_samples": 5
   },
   "phases": [
@@ -184,16 +185,62 @@
     {
       "id": 3,
       "name": "Integer Range Coder",
-      "status": "next",
-      "summary": "LLMなしでinteger frequencyとfinite payloadを相互変換。",
+      "status": "completed",
+      "summary": "整数演算だけでpayloadと固定・動的frequency symbol列を完全往復。",
       "exit_criterion": "1 byteから10 KiBまで数千ケースを完全復元する。",
-      "evidence": [],
-      "artifacts": []
+      "evidence": [
+        {
+          "label": "Core test suite",
+          "value": "154 passed"
+        },
+        {
+          "label": "Seeded round-trips",
+          "value": "2,000"
+        },
+        {
+          "label": "Largest payload",
+          "value": "10 KiB"
+        },
+        {
+          "label": "Coder state",
+          "value": "32-bit integer"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "Payload/symbol mapping",
+          "path": "src/lsteg/coding/codec.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/61035a3347f109743c6a2e5e418942c98ebe3e6f/src/lsteg/coding/codec.py"
+        },
+        {
+          "label": "Integer Range Coder",
+          "path": "src/lsteg/coding/range_coder.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/61035a3347f109743c6a2e5e418942c98ebe3e6f/src/lsteg/coding/range_coder.py"
+        },
+        {
+          "label": "Frequency tables",
+          "path": "src/lsteg/coding/frequencies.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/61035a3347f109743c6a2e5e418942c98ebe3e6f/src/lsteg/coding/frequencies.py"
+        },
+        {
+          "label": "Coding tests",
+          "path": "tests/coding/test_codec.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/61035a3347f109743c6a2e5e418942c98ebe3e6f/tests/coding/test_codec.py"
+        },
+        {
+          "label": "Protocol decision",
+          "path": "docs/adr/003-integer-range-coder-v1.md",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/61035a3347f109743c6a2e5e418942c98ebe3e6f/docs/adr/003-integer-range-coder-v1.md"
+        }
+      ],
+      "commit": "61035a3347f109743c6a2e5e418942c98ebe3e6f",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/61035a3347f109743c6a2e5e418942c98ebe3e6f",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/7"
     },
     {
       "id": 4,
       "name": "Model backend",
-      "status": "planned",
+      "status": "next",
       "summary": "固定model/tokenizerからnext-token logitsを取得。",
       "exit_criterion": "artifact revisionを固定してlogits interfaceを再現する。",
       "evidence": [],
