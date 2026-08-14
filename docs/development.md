@@ -95,8 +95,15 @@ uv add --dev PACKAGE
 ```
 
 手で `uv.lock` を編集しない。Phase 2の暗号libraryはPyNaClとcryptographyに固定した。
-PyTorch/Transformersとmodel artifactはPhase 4で、採用理由とversion pinを伴って追加する。GPU packageはOSと
-CUDA の組合せがあるため、通常の CPU-only test dependency から分離する。
+PyTorch/Transformersは`model` optional extraへ固定し、通常のCPU-only test dependencyから分離する。
+
+```powershell
+uv sync --extra model
+uv run --extra model python scripts/probe_model_backend.py
+```
+
+PyTorchは公式CUDA 13.0 index、その他のpackageはPyPIから解決する。model weightは固定commitから
+`artifacts/model-cache/`へ取得し、Gitには含めない。
 
 ## 6. test policy
 

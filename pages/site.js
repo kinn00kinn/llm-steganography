@@ -220,6 +220,29 @@ function renderSample(sample) {
   detail.append(frame);
 }
 
+function renderComparison(comparison) {
+  const container = document.querySelector("#comparison");
+  if (!container) return;
+
+  if (comparison.status === "available") {
+    container.classList.remove("pending-card");
+    const pill = createElement("span", "status-pill completed", "検証済み");
+    const title = createElement("h3", "", "自然な文章に秘密を隠せる");
+    const desc = createElement("p", "", "LLMの確率分布を利用し、指定したプロンプトから極めて自然な日本語テキストにデータを埋め込んでいます。");
+    
+    const view = createElement("div", "comparison-view");
+    
+    const control = createElement("div", "comparison-box");
+    control.append(createElement("h4", "", "通常の出力（Control）"), createElement("p", "", comparison.control_text));
+    
+    const stego = createElement("div", "comparison-box");
+    stego.append(createElement("h4", "", "データ埋め込み（Stego）"), createElement("p", "", comparison.stego_text));
+    
+    view.append(control, stego);
+    container.replaceChildren(pill, title, desc, view);
+  }
+}
+
 function render(resultDocument) {
   state.selectedPhase = resultDocument.project.last_completed_phase;
   renderOverview(resultDocument);
@@ -227,6 +250,7 @@ function render(resultDocument) {
   renderPhaseDetail(resultDocument.phases[state.selectedPhase]);
   renderSampleList(resultDocument.samples);
   renderSample(resultDocument.samples[state.selectedSample]);
+  renderComparison(resultDocument.comparison);
 }
 
 async function loadResults() {

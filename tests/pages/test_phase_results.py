@@ -9,6 +9,7 @@ from typing import cast
 from lsteg.payload import decode_text_payload
 from lsteg.reporting.phase_results import (
     DEFAULT_OUTPUT,
+    PHASE_FOUR_COMMIT,
     PHASE_ONE_COMMIT,
     PHASE_THREE_COMMIT,
     PHASE_TWO_COMMIT,
@@ -50,27 +51,30 @@ def test_committed_phase_results_match_generator() -> None:
 def test_phase_statuses_are_contiguous_and_honest() -> None:
     document = build_document()
     phases = cast(list[JsonObject], document["phases"])
-
-    assert [phase["id"] for phase in phases] == list(range(13))
-    assert [phase["status"] for phase in phases[:5]] == [
+    expected_ids = [0, 1, 2, 3, 4, "5A", "5B", "5C", "5D", 6, 7, 8, 9, 10, 11, 12]
+    assert [phase["id"] for phase in phases] == expected_ids
+    assert [phase["status"] for phase in phases[:7]] == [
         "completed",
         "completed",
         "completed",
         "completed",
-        "next",
+        "completed",
+        "completed",
+        "completed",
     ]
-    assert all(phase["status"] == "planned" for phase in phases[5:])
+    assert all(phase["status"] == "planned" for phase in phases[7:])
     assert phases[0]["commit"] == PHASE_ZERO_COMMIT
     assert phases[1]["commit"] == PHASE_ONE_COMMIT
     assert phases[2]["commit"] == PHASE_TWO_COMMIT
     assert phases[3]["commit"] == PHASE_THREE_COMMIT
+    assert phases[4]["commit"] == PHASE_FOUR_COMMIT
 
 
 def test_completed_phase_artifacts_exist_and_link_to_fixed_commits() -> None:
     document = build_document()
     phases = cast(list[JsonObject], document["phases"])
 
-    for phase in phases[:4]:
+    for phase in phases[:5]:
         commit = cast(str, phase["commit"])
         artifacts = cast(list[JsonObject], phase["artifacts"])
         assert artifacts

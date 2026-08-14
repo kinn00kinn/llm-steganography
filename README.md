@@ -7,8 +7,8 @@
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
-**Phase 3: integer Range Coder** まで完了しています。payload、暗号、integer coding、
-model推論を独立に実装・検証します。次はPhase 4のmodel backendです。
+**Phase 4: model backend** まで完了しています。payload、暗号、integer coding、model推論を
+独立に実装・検証します。次はPhase 5の日本語entropy/capacity probeです。
 
 ## 目標
 
@@ -60,6 +60,7 @@ pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version
 - [ADR-001: text payload frame v1](docs/adr/001-text-payload-frame-v1.md)
 - [ADR-002: shared-key and AEAD envelope v1](docs/adr/002-shared-key-aead-v1.md)
 - [ADR-003: integer Range Coder v1](docs/adr/003-integer-range-coder-v1.md)
+- [ADR-004: pinned model backend v1](docs/adr/004-pinned-model-backend-v1.md)
 - [コントリビューション規約](CONTRIBUTING.md)
 - [初期メモ](first.md)
 
@@ -85,7 +86,7 @@ commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と�
 src/lsteg/
   payload/    # 正規化、圧縮、framing、鍵導出、AEAD（Phase 2 実装済み）
   coding/     # integer frequencies と Range Coding（Phase 3 実装済み）
-  model/      # tokenizer / LLM backend
+  model/      # tokenizer / pinned LLM backend（Phase 4 実装済み）
   stego/      # 各層を結合する encoder / decoder
   metrics/    # capacity、entropy、benchmark
 ```
@@ -128,3 +129,18 @@ assert recover_bytes_from_symbols(symbols, len(payload), table) == payload
 
 coder内部はinteger演算だけを使用します。Range Coder自体は改ざんを検出しないため、復元した
 bytesはPhase 2のAEAD envelopeで必ず認証します。
+
+## Phase 4 model probe
+
+通常のpayload/coding開発はmodel dependencyなしで動く。固定Qwen backendを明示的に使う場合だけ、
+optional extraを同期する。
+
+```powershell
+uv sync --extra model
+uv run --extra model python scripts/probe_model_backend.py
+# 取得後のoffline再検証
+uv run --extra model python scripts/probe_model_backend.py --local-files-only
+```
+
+debug modelは`Qwen/Qwen3-1.7B`のfull commit SHAへ固定する。weightはignoredな
+`artifacts/model-cache/`に置き、GitHub Pagesやrepositoryへ含めない。

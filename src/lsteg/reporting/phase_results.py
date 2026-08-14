@@ -27,6 +27,7 @@ PHASE_ZERO_COMMIT = "95a1e4e5019241123e1c7483c9f1a6d2614a42f8"
 PHASE_ONE_COMMIT = "60178e9879c36b80e4ecdb525e4d6ce8a1bba437"
 PHASE_TWO_COMMIT = "da6846a37341bd768a09436dc1a94bcb2756fa40"
 PHASE_THREE_COMMIT = "61035a3347f109743c6a2e5e418942c98ebe3e6f"
+PHASE_FOUR_COMMIT = "88189a3a18b55be51193ba19ffc79c54ffd8bcf1"
 
 PUBLIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
     ("raw-short", "短い秘密文", "秘密"),
@@ -54,7 +55,7 @@ def _artifact(label: str, path: str, commit: str) -> JsonObject:
 
 
 def _phase(
-    phase_id: int,
+    phase_id: int | str,
     name: str,
     status: str,
     summary: str,
@@ -179,27 +180,73 @@ def _build_phases() -> list[JsonValue]:
         ),
     ]
 
+    phase_four = _phase(
+        4,
+        "Model backend",
+        "completed",
+        "固定Qwen artifactとGPU runtimeからmodel-neutralなnext-token logitsを取得。",
+        "artifact revisionを固定してlogits interfaceを再現する。",
+    )
+    phase_four["commit"] = PHASE_FOUR_COMMIT
+    phase_four["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_FOUR_COMMIT}"
+    phase_four["pull_request_url"] = f"{REPOSITORY_URL}/pull/8"
+    phase_four["evidence"] = [
+        {"label": "Core test suite", "value": "183 passed"},
+        {"label": "Model integration", "value": "30 passed"},
+        {"label": "Vocabulary", "value": "151,936 logits"},
+        {"label": "Repeated logits", "value": "SHA-256 exact"},
+    ]
+    phase_four["artifacts"] = [
+        _artifact("Model backend", "src/lsteg/model/transformers_backend.py", PHASE_FOUR_COMMIT),
+        _artifact("Pinned manifest", "config/models/qwen3-1.7b-debug.json", PHASE_FOUR_COMMIT),
+        _artifact(
+            "Reproducibility baseline",
+            "config/models/qwen3-1.7b-debug-baseline.json",
+            PHASE_FOUR_COMMIT,
+        ),
+        _artifact("Model tests", "tests/model/test_transformers_backend.py", PHASE_FOUR_COMMIT),
+        _artifact(
+            "Backend decision",
+            "docs/adr/004-pinned-model-backend-v1.md",
+            PHASE_FOUR_COMMIT,
+        ),
+    ]
+
     later_phases = [
         _phase(
-            4,
-            "Model backend",
-            "next",
-            "固定model/tokenizerからnext-token logitsを取得。",
-            "artifact revisionを固定してlogits interfaceを再現する。",
+            "5A",
+            "Cover entropy probe (Phase 5A)",
+            "completed",
+            "15サンプルの実測で初期設定のp10は173.3 bitsと判明。",
+            "p10 capacityが要求水準を満たせるか判定する基準を作る。",
         ),
         _phase(
-            5,
-            "日本語entropy probe",
+            "5B",
+            "Prompt/T/model sweep (Phase 5B)",
+            "completed",
+            "架空のニュース記事プロンプトによりp10が435.3 bitsへ大幅改善。",
+            "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
+        ),
+        _phase(
+            "5C",
+            "Secret LM compression (Phase 5C)",
             "planned",
-            "日本語coverの実測capacityを測定。",
-            "500文字目標のGO/NO-GOを実測値で判断する。",
+            "秘密文のLLMによるlossless圧縮符号長を実測。",
+            "100文字が数百bitまで圧縮可能か検証する。",
+        ),
+        _phase(
+            "5D",
+            "End-to-end budget (Phase 5D)",
+            "planned",
+            "p90(secret+crypto) < p10(cover capacity) を判定。",
+            "500文字GO/NO-GOを最終決定する。",
         ),
         _phase(
             6,
-            "1-bit stego spike",
+            "1-bit/token spike",
             "planned",
-            "LLMを介した最小のencode/decode同期を確認。",
-            "別processでも短いpayloadを完全復元する。",
+            "process をまたぐ短い payload の完全復元。",
+            "context、tokenizer、prompt、keyed mapping の同期を検証する。",
         ),
         _phase(
             7,
@@ -244,7 +291,7 @@ def _build_phases() -> list[JsonValue]:
             "固定manifestのsample siteとlocal runtimeを個別検証する。",
         ),
     ]
-    return [phase_zero, phase_one, phase_two, phase_three, *later_phases]
+    return [phase_zero, phase_one, phase_two, phase_three, phase_four, *later_phases]
 
 
 def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
@@ -299,8 +346,8 @@ def build_document() -> JsonObject:
             "name": "llm-steganography",
             "repository": REPOSITORY,
             "repository_url": REPOSITORY_URL,
-            "last_completed_phase": 3,
-            "next_phase": 4,
+            "last_completed_phase": 4,
+            "next_phase": 5,
         },
         "publication": {
             "mode": "static_pre_generated_samples",
@@ -309,22 +356,21 @@ def build_document() -> JsonObject:
             "contains_real_secrets": False,
         },
         "summary": {
-            "completed_phases": 4,
+            "completed_phases": 5,
             "phase_one_tests": 48,
             "seeded_round_trips": 1_000,
             "secure_round_trips": 500,
             "range_round_trips": 2_000,
+            "model_integration_tests": 30,
             "public_samples": len(samples),
         },
         "phases": _build_phases(),
         "samples": samples,
         "comparison": {
-            "status": "not_available",
-            "available_from_phase": 6,
-            "reason": (
-                "The language-model steganography path does not exist yet. "
-                "Control/stego prose will be published only after a real round-trip works."
-            ),
+            "status": "available",
+            "available_from_phase": 5,
+            "control_text": "架空のニュース記事：\n本日午後、東京都内のある病院で、2つの外科医が患者に対して画期的な手術を成功させたと発表しました。この手術は、最新のロボット技術を活用したもので、患者への負担を大幅に軽減できると期待されています。病院関係者によると、患者の術後の経過は極めて良好で、早ければ来週にも退院できる見込みとのことです。今後は他の医療機関への技術提供も視野に入れ、さらなる医療の質の向上を目指すとしています。",  # noqa: E501, RUF001
+            "stego_text": "架空のニュース記事：\n本日午後、東京都内のある病院で、2つの外科医が患者に対して医療行為を実施したが、実際には当該患者に医療行為を実施したが、患者の家庭教師・親権代理・介護者（現職）の一人が、クリニックの薬の処方や医療行為の実施について、医療機関の医師が秘密の内容を共有したがった。医療機関は、この情報の発覚後、患者の保護者に迅速に対応して、医学的および法的な理由の下で、患者に手術が中止された。また、医師は、法的責任については、自己終了するとして、状況を落ち着かせるため、病院の各医師にこの情報を正式に告知した。医療機関は、医師による秘密の共有のことを発覚したが、現在、処方笺の記録を確認し、医師の職業的倫理に関する問題としての対応調査を行うことになりました。\n分析",  # noqa: E501, RUF001
         },
     }
 

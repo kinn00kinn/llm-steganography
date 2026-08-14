@@ -65,6 +65,11 @@ class LanguageModelBackend(Protocol):
 `Logits` から integer frequencies への変換は versioned policy として分離する。
 temperature、top-k/top-p、禁止 token、quantization、tie-break をすべて固定する。
 
+Phase 4のbackendはQwen/Transformers固有tensorをmodule内でcanonical float32 `Logits`へ変換し、
+model/tokenizer commit、runtime、dtype、deviceをJSON manifestへ固定する。numeric policy v1の
+互換範囲は同一runtime/deviceとし、異なるCPU/GPU間のraw logits一致は仮定しない。詳細は
+`docs/adr/004-pinned-model-backend-v1.md`に固定する。
+
 ### `lsteg.stego`
 
 - prompt/context の構築

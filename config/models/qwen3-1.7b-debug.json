@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "role": "debug",
+  "model_id": "Qwen/Qwen3-1.7B",
+  "model_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "tokenizer_id": "Qwen/Qwen3-1.7B",
+  "tokenizer_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "license": "Apache-2.0",
+  "transformers_version": "5.15.0",
+  "torch_version": "2.13.0+cu130",
+  "dtype": "float16",
+  "device": "cuda:0",
+  "numeric_policy": "cuda-float16-same-runtime-device-v1",
+  "max_context_tokens": 2048,
+  "trust_remote_code": false
+}
