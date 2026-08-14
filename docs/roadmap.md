@@ -2,7 +2,7 @@
 
 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
 
-現在地: **Phase 2 完了、Phase 3 着手前**。
+現在地: **Phase 3 完了、Phase 4 着手前**。
 
 GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
 表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit
@@ -88,7 +88,7 @@ atomic/no-clobber write、nonce generation、key separation をテストする�
 
 wire formatと判断理由は`docs/adr/002-shared-key-aead-v1.md`に固定した。
 
-## Phase 3 — integer coding
+## Phase 3 — integer coding（完了）
 
 LLM の代わりに固定・生成 frequency tables を用いる。1 byte、10 bytes、100 bytes、
 1 KiB、10 KiB と境界 payload を多数試験し、内部 arithmetic に float を持ち込まない。
@@ -99,6 +99,19 @@ LLM の代わりに固定・生成 frequency tables を用いる。1 byte、10 b
 secret → payload → AEAD frame → coder → symbols
        ←         ←            ←       ←
 ```
+
+実装結果:
+
+- 32-bit integer intervalとE1/E2/E3 renormalization
+- total 32,768以下のimmutable cumulative frequency table
+- 固定tableとcontext-dependent table provider
+- symbol count / coded bit lengthを持つ14-byte finite frame
+- arbitrary payload bytes → symbols → exact bytesのtermination-bit protocol
+- empty、1 byte、10 bytes、100 bytes、1 KiB、10 KiBのround-trip
+- 2,000 seeded random payloads、全256 single-byte値、skewed tableのround-trip
+- Phase 2 secure envelope → 4-symbol channel → AEAD復元の統合test
+
+protocolと判断理由は`docs/adr/003-integer-range-coder-v1.md`に固定した。
 
 ## Phase 4–5 — model と feasibility
 

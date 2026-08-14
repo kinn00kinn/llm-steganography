@@ -7,9 +7,8 @@
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
-**Phase 2: shared-key payload** まで完了しています。LLMと暗号処理を急いで結合せず、
-payload、暗号、integer Range Coding、model推論を独立に実装・検証します。次はPhase 3の
-integer Range Coderです。
+**Phase 3: integer Range Coder** まで完了しています。payload、暗号、integer coding、
+model推論を独立に実装・検証します。次はPhase 4のmodel backendです。
 
 ## 目標
 
@@ -60,6 +59,7 @@ pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version
 - [意思決定ログ](docs/decisions.md)
 - [ADR-001: text payload frame v1](docs/adr/001-text-payload-frame-v1.md)
 - [ADR-002: shared-key and AEAD envelope v1](docs/adr/002-shared-key-aead-v1.md)
+- [ADR-003: integer Range Coder v1](docs/adr/003-integer-range-coder-v1.md)
 - [コントリビューション規約](CONTRIBUTING.md)
 - [初期メモ](first.md)
 
@@ -84,7 +84,7 @@ commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と�
 ```text
 src/lsteg/
   payload/    # 正規化、圧縮、framing、鍵導出、AEAD（Phase 2 実装済み）
-  coding/     # integer frequencies と Range Coding
+  coding/     # integer frequencies と Range Coding（Phase 3 実装済み）
   model/      # tokenizer / LLM backend
   stego/      # 各層を結合する encoder / decoder
   metrics/    # capacity、entropy、benchmark
@@ -114,3 +114,17 @@ print(encoded.secure_metrics.secure_frame_bits)
 
 master keyは32 bytesで、暗号用と将来のstego用subkeyへ用途分離します。secure frameは
 XChaCha20-Poly1305で暗号化・認証され、wrong keyと改ざんを同じ認証失敗として拒否します。
+
+## Phase 3 API
+
+```python
+from lsteg.coding import FrequencyTable, map_bytes_to_symbols, recover_bytes_from_symbols
+
+payload = b"authenticated payload"
+table = FrequencyTable([40, 30, 20, 10])
+symbols = map_bytes_to_symbols(payload, table)
+assert recover_bytes_from_symbols(symbols, len(payload), table) == payload
+```
+
+coder内部はinteger演算だけを使用します。Range Coder自体は改ざんを検出しないため、復元した
+bytesはPhase 2のAEAD envelopeで必ず認証します。
