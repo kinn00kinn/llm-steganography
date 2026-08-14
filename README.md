@@ -5,8 +5,9 @@
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
-現時点は **Phase 0: 開発基盤** です。LLM や暗号処理を急いで結合せず、
-payload、暗号、整数 Range Coding、モデル推論を独立に実装・検証します。
+**Phase 1: text payload codec** まで完了しています。LLM や暗号処理を急いで結合せず、
+payload、暗号、整数 Range Coding、モデル推論を独立に実装・検証します。次は Phase 2 の
+共有鍵、AEAD、secure framing です。
 
 ## 目標
 
@@ -50,6 +51,7 @@ pyenv / pyenv-win を使う場合も、リポジトリ直下の `.python-version
 - [開発環境と日常コマンド](docs/development.md)
 - [Web UI・比較可視化](docs/web-ui.md)
 - [意思決定ログ](docs/decisions.md)
+- [ADR-001: text payload frame v1](docs/adr/001-text-payload-frame-v1.md)
 - [コントリビューション規約](CONTRIBUTING.md)
 - [初期メモ](first.md)
 
@@ -69,7 +71,7 @@ squash merge します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照�
 
 ```text
 src/lsteg/
-  payload/    # 正規化、圧縮、framing、暗号
+  payload/    # 正規化、圧縮、framing（Phase 1 実装済み）、暗号
   coding/     # integer frequencies と Range Coding
   model/      # tokenizer / LLM backend
   stego/      # 各層を結合する encoder / decoder
@@ -78,3 +80,19 @@ src/lsteg/
 
 各ディレクトリは、対応する Phase に入るときに追加します。先行して空の構造を
 量産せず、テストと一緒に実装します。
+
+## Phase 1 API
+
+```python
+from lsteg.payload import decode_text_payload, encode_text_payload
+
+encoded = encode_text_payload("e\u0301 を含む秘密")
+assert decode_text_payload(encoded.frame) == encoded.normalized_text
+
+print(encoded.metrics.raw_bits)
+print(encoded.metrics.frame_bits)
+print(encoded.metrics.compression.name)
+```
+
+このframeはまだ暗号化・認証されていないinner payloadです。機密用途には使用せず、
+Phase 2 でAEAD envelopeに格納します。

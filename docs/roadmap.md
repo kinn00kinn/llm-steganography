@@ -2,6 +2,8 @@
 
 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
 
+現在地: **Phase 1 完了、Phase 2 着手前**。
+
 | Phase | 成果 | 主な exit criteria | LLM/GPU |
 |---:|---|---|:---:|
 | 0 | repo、CLI、品質基盤 | 全品質チェック成功、CLI 4 command が見える | 不要 |
@@ -18,7 +20,7 @@
 | 11 | Sample export/Web UI | sanitized sample schema と静的比較 viewer | 不要 |
 | 12 | Pages/Docker deploy | Pages sample site と local runtime を個別検証 | UIのみ不要 |
 
-## Phase 0 — 開発基盤（現在）
+## Phase 0 — 開発基盤（完了）
 
 成果物:
 
@@ -30,7 +32,7 @@
 
 実コマンドは stub でよい。ここでは暗号や偽の stego 動作を先回りして実装しない。
 
-## Phase 1 — text payload codec
+## Phase 1 — text payload codec（完了）
 
 実装対象:
 
@@ -46,6 +48,17 @@
 - 不正 compressed data の拒否
 
 圧縮は短文で肥大化し得るため、raw/圧縮済みの短い方を versioned flag で選択する。
+
+実装結果:
+
+- NFC後100 code points、最大400 UTF-8 bytes
+- 10-byte versioned header
+- RAWまたはzlib level 9（小さい方）
+- bounded decompression、canonical NFC、UTF-8、lengthの検証
+- 1,000件のseeded Unicode round-tripを含む48 tests
+- `raw/stored/frame` bytesとbitsのmetrics
+
+wire formatと判断理由は`docs/adr/001-text-payload-frame-v1.md`に固定した。
 
 ## Phase 2 — shared-key payload
 
