@@ -10,6 +10,7 @@ from lsteg.payload import decode_text_payload
 from lsteg.reporting.phase_results import (
     DEFAULT_OUTPUT,
     PHASE_ONE_COMMIT,
+    PHASE_THREE_COMMIT,
     PHASE_TWO_COMMIT,
     PHASE_ZERO_COMMIT,
     JsonObject,
@@ -51,23 +52,25 @@ def test_phase_statuses_are_contiguous_and_honest() -> None:
     phases = cast(list[JsonObject], document["phases"])
 
     assert [phase["id"] for phase in phases] == list(range(13))
-    assert [phase["status"] for phase in phases[:4]] == [
+    assert [phase["status"] for phase in phases[:5]] == [
+        "completed",
         "completed",
         "completed",
         "completed",
         "next",
     ]
-    assert all(phase["status"] == "planned" for phase in phases[4:])
+    assert all(phase["status"] == "planned" for phase in phases[5:])
     assert phases[0]["commit"] == PHASE_ZERO_COMMIT
     assert phases[1]["commit"] == PHASE_ONE_COMMIT
     assert phases[2]["commit"] == PHASE_TWO_COMMIT
+    assert phases[3]["commit"] == PHASE_THREE_COMMIT
 
 
 def test_completed_phase_artifacts_exist_and_link_to_fixed_commits() -> None:
     document = build_document()
     phases = cast(list[JsonObject], document["phases"])
 
-    for phase in phases[:3]:
+    for phase in phases[:4]:
         commit = cast(str, phase["commit"])
         artifacts = cast(list[JsonObject], phase["artifacts"])
         assert artifacts
