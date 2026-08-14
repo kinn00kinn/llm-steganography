@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from hashlib import sha256
 from pathlib import Path
 from typing import cast
 
@@ -125,10 +126,13 @@ def test_publication_mode_has_no_runtime_or_real_secrets() -> None:
 def test_static_site_references_only_committed_same_origin_assets() -> None:
     html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
     javascript = (PROJECT_ROOT / "pages" / "site.js").read_text(encoding="utf-8")
+    css_revision = sha256((PROJECT_ROOT / "pages" / "site.css").read_bytes()).hexdigest()[:12]
+    js_revision = sha256((PROJECT_ROOT / "pages" / "site.js").read_bytes()).hexdigest()[:12]
 
-    assert "./pages/site.css" in html
-    assert "./pages/site.js" in html
+    assert f"./pages/site.css?v={css_revision}" in html
+    assert f"./pages/site.js?v={js_revision}" in html
     assert "./pages/data/phase-results.json" in html
+    assert "script-src 'self' https://static.cloudflareinsights.com" in html
     assert "connect-src 'self'" in html
     assert "./pages/data/phase-results.json" in javascript
     assert "fetch(RESULTS_URL" in javascript
