@@ -16,6 +16,17 @@ dependencies = [
 [project.scripts]
 steg = "lsteg.cli:main"
 
+[project.optional-dependencies]
+model = [
+    "torch==2.13.0",
+    "transformers==5.15.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
 [dependency-groups]
 dev = [
   "mypy>=1.15,<2",
@@ -29,6 +40,9 @@ packages = ["src/lsteg"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
+markers = [
+    "model: requires the pinned local model artifact and optional GPU runtime",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -42,3 +56,6 @@ select = ["B", "E", "F", "I", "RUF", "UP"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
