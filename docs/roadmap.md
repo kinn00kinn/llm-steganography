@@ -2,7 +2,7 @@
 
 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
 
-現在地: **Phase 3 完了、Phase 4 着手前**。
+現在地: **Phase 4 完了、Phase 5 着手前**。
 
 GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
 表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit
@@ -113,7 +113,22 @@ secret → payload → AEAD frame → coder → symbols
 
 protocolと判断理由は`docs/adr/003-integer-range-coder-v1.md`に固定した。
 
-## Phase 4–5 — model と feasibility
+## Phase 4 — model backend（完了）
+
+実装結果:
+
+- model-neutralな`tokenize` / `detokenize` / `next_logits` interface
+- `Qwen/Qwen3-1.7B` model/tokenizerをfull commit SHAへ固定
+- Python、Transformers、PyTorch CUDA、dtype、device、numeric policyのstrict manifest
+- framework tensorをmodule外へ漏らさないimmutable canonical float32 `Logits`
+- deterministic algorithms、cuDNN benchmark無効、TF32無効
+- RTX 4060 Laptop GPUでtokenization完全往復と151,936 logitsを取得
+- 同一contextの反復logits SHA-256完全一致
+- 通常CIから分離したoptional `model` extraと明示`model` test marker
+
+artifact/runtime/numeric boundaryは`docs/adr/004-pinned-model-backend-v1.md`に固定した。
+
+## Phase 5 — 日本語entropy probe
 
 小型 model を algorithm debug 用、より大きい model を日本語品質評価用に分ける。
 artifact は name だけでなく revision/hash を固定する。Phase 5 では 100～500 程度の

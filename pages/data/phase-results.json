@@ -4,8 +4,8 @@
     "name": "llm-steganography",
     "repository": "kinn00kinn/llm-steganography",
     "repository_url": "https://github.com/kinn00kinn/llm-steganography",
-    "last_completed_phase": 3,
-    "next_phase": 4
+    "last_completed_phase": 4,
+    "next_phase": 5
   },
   "publication": {
     "mode": "static_pre_generated_samples",
@@ -14,11 +14,12 @@
     "contains_real_secrets": false
   },
   "summary": {
-    "completed_phases": 4,
+    "completed_phases": 5,
     "phase_one_tests": 48,
     "seeded_round_trips": 1000,
     "secure_round_trips": 500,
     "range_round_trips": 2000,
+    "model_integration_tests": 30,
     "public_samples": 5
   },
   "phases": [
@@ -240,16 +241,62 @@
     {
       "id": 4,
       "name": "Model backend",
-      "status": "next",
-      "summary": "固定model/tokenizerからnext-token logitsを取得。",
+      "status": "completed",
+      "summary": "固定Qwen artifactとGPU runtimeからmodel-neutralなnext-token logitsを取得。",
       "exit_criterion": "artifact revisionを固定してlogits interfaceを再現する。",
-      "evidence": [],
-      "artifacts": []
+      "evidence": [
+        {
+          "label": "Core test suite",
+          "value": "183 passed"
+        },
+        {
+          "label": "Model integration",
+          "value": "30 passed"
+        },
+        {
+          "label": "Vocabulary",
+          "value": "151,936 logits"
+        },
+        {
+          "label": "Repeated logits",
+          "value": "SHA-256 exact"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "Model backend",
+          "path": "src/lsteg/model/transformers_backend.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/88189a3a18b55be51193ba19ffc79c54ffd8bcf1/src/lsteg/model/transformers_backend.py"
+        },
+        {
+          "label": "Pinned manifest",
+          "path": "config/models/qwen3-1.7b-debug.json",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/88189a3a18b55be51193ba19ffc79c54ffd8bcf1/config/models/qwen3-1.7b-debug.json"
+        },
+        {
+          "label": "Reproducibility baseline",
+          "path": "config/models/qwen3-1.7b-debug-baseline.json",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/88189a3a18b55be51193ba19ffc79c54ffd8bcf1/config/models/qwen3-1.7b-debug-baseline.json"
+        },
+        {
+          "label": "Model tests",
+          "path": "tests/model/test_transformers_backend.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/88189a3a18b55be51193ba19ffc79c54ffd8bcf1/tests/model/test_transformers_backend.py"
+        },
+        {
+          "label": "Backend decision",
+          "path": "docs/adr/004-pinned-model-backend-v1.md",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/88189a3a18b55be51193ba19ffc79c54ffd8bcf1/docs/adr/004-pinned-model-backend-v1.md"
+        }
+      ],
+      "commit": "88189a3a18b55be51193ba19ffc79c54ffd8bcf1",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/88189a3a18b55be51193ba19ffc79c54ffd8bcf1",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/8"
     },
     {
       "id": 5,
       "name": "日本語entropy probe",
-      "status": "planned",
+      "status": "next",
       "summary": "日本語coverの実測capacityを測定。",
       "exit_criterion": "500文字目標のGO/NO-GOを実測値で判断する。",
       "evidence": [],

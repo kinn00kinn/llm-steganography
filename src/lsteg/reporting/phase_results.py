@@ -27,6 +27,7 @@ PHASE_ZERO_COMMIT = "95a1e4e5019241123e1c7483c9f1a6d2614a42f8"
 PHASE_ONE_COMMIT = "60178e9879c36b80e4ecdb525e4d6ce8a1bba437"
 PHASE_TWO_COMMIT = "da6846a37341bd768a09436dc1a94bcb2756fa40"
 PHASE_THREE_COMMIT = "61035a3347f109743c6a2e5e418942c98ebe3e6f"
+PHASE_FOUR_COMMIT = "88189a3a18b55be51193ba19ffc79c54ffd8bcf1"
 
 PUBLIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
     ("raw-short", "短い秘密文", "秘密"),
@@ -179,18 +180,43 @@ def _build_phases() -> list[JsonValue]:
         ),
     ]
 
-    later_phases = [
-        _phase(
-            4,
-            "Model backend",
-            "next",
-            "固定model/tokenizerからnext-token logitsを取得。",
-            "artifact revisionを固定してlogits interfaceを再現する。",
+    phase_four = _phase(
+        4,
+        "Model backend",
+        "completed",
+        "固定Qwen artifactとGPU runtimeからmodel-neutralなnext-token logitsを取得。",
+        "artifact revisionを固定してlogits interfaceを再現する。",
+    )
+    phase_four["commit"] = PHASE_FOUR_COMMIT
+    phase_four["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_FOUR_COMMIT}"
+    phase_four["pull_request_url"] = f"{REPOSITORY_URL}/pull/8"
+    phase_four["evidence"] = [
+        {"label": "Core test suite", "value": "183 passed"},
+        {"label": "Model integration", "value": "30 passed"},
+        {"label": "Vocabulary", "value": "151,936 logits"},
+        {"label": "Repeated logits", "value": "SHA-256 exact"},
+    ]
+    phase_four["artifacts"] = [
+        _artifact("Model backend", "src/lsteg/model/transformers_backend.py", PHASE_FOUR_COMMIT),
+        _artifact("Pinned manifest", "config/models/qwen3-1.7b-debug.json", PHASE_FOUR_COMMIT),
+        _artifact(
+            "Reproducibility baseline",
+            "config/models/qwen3-1.7b-debug-baseline.json",
+            PHASE_FOUR_COMMIT,
         ),
+        _artifact("Model tests", "tests/model/test_transformers_backend.py", PHASE_FOUR_COMMIT),
+        _artifact(
+            "Backend decision",
+            "docs/adr/004-pinned-model-backend-v1.md",
+            PHASE_FOUR_COMMIT,
+        ),
+    ]
+
+    later_phases = [
         _phase(
             5,
             "日本語entropy probe",
-            "planned",
+            "next",
             "日本語coverの実測capacityを測定。",
             "500文字目標のGO/NO-GOを実測値で判断する。",
         ),
@@ -244,7 +270,7 @@ def _build_phases() -> list[JsonValue]:
             "固定manifestのsample siteとlocal runtimeを個別検証する。",
         ),
     ]
-    return [phase_zero, phase_one, phase_two, phase_three, *later_phases]
+    return [phase_zero, phase_one, phase_two, phase_three, phase_four, *later_phases]
 
 
 def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
@@ -299,8 +325,8 @@ def build_document() -> JsonObject:
             "name": "llm-steganography",
             "repository": REPOSITORY,
             "repository_url": REPOSITORY_URL,
-            "last_completed_phase": 3,
-            "next_phase": 4,
+            "last_completed_phase": 4,
+            "next_phase": 5,
         },
         "publication": {
             "mode": "static_pre_generated_samples",
@@ -309,11 +335,12 @@ def build_document() -> JsonObject:
             "contains_real_secrets": False,
         },
         "summary": {
-            "completed_phases": 4,
+            "completed_phases": 5,
             "phase_one_tests": 48,
             "seeded_round_trips": 1_000,
             "secure_round_trips": 500,
             "range_round_trips": 2_000,
+            "model_integration_tests": 30,
             "public_samples": len(samples),
         },
         "phases": _build_phases(),

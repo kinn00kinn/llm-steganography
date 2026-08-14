@@ -16,6 +16,7 @@
 | D-007 | text payload frame v1 | NFC、100 code points、RAW/zlib、10-byte header |
 | D-008 | XChaCha20-Poly1305 + HKDF-Expand-SHA256 | 24-byte random nonceと用途別subkey |
 | D-009 | 32-bit integer Range Coder + length frame | floatを排除し有限messageを一意に復元 |
+| D-010 | Qwen3-1.7B commit pin + same-runtime/device numeric policy | model境界と再現性claimを限定 |
 
 ## 実装前に決める事項
 
@@ -26,8 +27,6 @@
 | P0 | prompt/topic の復元 | 固定 versioned prompt で開始 | Phase 6 前 |
 | P0 | cover text の canonical transport | exact Unicode string/UTF-8、編集時は復号保証外 | Phase 6 前 |
 | P1 | experiment JSON schema | versioned、sensitive fields は既定 redaction | Phase 1～5 |
-| P4 | model/tokenizer license と artifact pin | debug/quality model を分離し hash 固定 | download 前 |
-| P4 | numeric determinism boundary | decoder 互換 platform を manifest で限定 | Phase 4 |
 | P5 | GO/NO-GO capacity margin | 実測 entropy に安全余裕を設定 | Phase 5 |
 | P9 | naturalness evaluation corpus | 合成/再配布可能な日本語 corpus と blind 評価 | Phase 9 |
 | P9 | public sample export/redaction | allowlist 済み synthetic secret と schema CI | Pages 前 |
