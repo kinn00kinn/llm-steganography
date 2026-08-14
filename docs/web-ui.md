@@ -156,6 +156,20 @@ redaction しない。CI はすべての public sample に対して次を検証�
 - 長い token 列は段階表示し、mobile では summary を先に表示する
 - build output は生成物とし、source/sample JSON は Pull Request で review する
 
+### Current information design
+
+Phase 0/1の先行viewerは、参考サイト
+[blog.kinn-kinn.com](https://blog.kinn-kinn.com/) と同じく、白黒を中心に、太い罫線、
+丸角カード、十分な余白、控えめな緑を使う。参考にするのはvisual grammarであり、viewerの
+情報構造は研究結果に合わせて次の3点へ限定する。
+
+1. 現在地: 完了phase数、最後の完了phase、次に実装するphase
+2. 現在の成果: 検証済みpayload round-tripと生成済みsample
+3. 限界と計画: LLM埋め込みが未実装であること、各phaseの完了条件とevidence
+
+未完了phase、frame hex、source artifactはprogressive disclosureで表示する。擬似console、
+装飾用bit列、同じ意味のmetricの重複、実装済みと誤認させるcontrol/stego mockは置かない。
+
 ## 9. implementation timing
 
 Phase 0/1ではprogress viewerを先行配置し、完了条件、source artifact、payload

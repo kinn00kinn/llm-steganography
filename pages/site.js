@@ -3,8 +3,7 @@
 const RESULTS_URL = "./pages/data/phase-results.json";
 
 const state = {
-  document: null,
-  selectedPhase: 1,
+  selectedPhase: null,
   selectedSample: 0,
 };
 
@@ -15,136 +14,141 @@ function createElement(tag, className, text) {
   return element;
 }
 
+function createExternalLink(label, url) {
+  const link = createElement("a", "", label);
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  return link;
+}
+
 function formatNumber(value) {
   return new Intl.NumberFormat("ja-JP").format(value);
 }
 
 function statusLabel(status) {
   return {
-    completed: "completed",
-    next: "next",
-    planned: "planned",
+    completed: "完了",
+    next: "次に実装",
+    planned: "予定",
   }[status] ?? status;
 }
 
-function renderSummary(resultDocument) {
+function renderOverview(resultDocument) {
+  const { phases, summary } = resultDocument;
+  const completed = phases.filter((phase) => phase.status === "completed");
+  const next = phases.find((phase) => phase.status === "next");
+  const lastCompleted = completed.at(-1);
+
   document.querySelectorAll("[data-summary]").forEach((element) => {
     const key = element.dataset.summary;
-    element.textContent = formatNumber(resultDocument.summary[key]);
+    const value = key === "total_phases" ? phases.length : summary[key];
+    element.textContent = formatNumber(value);
   });
+
+  document.querySelector("#progress-fill").style.width = `${(completed.length / phases.length) * 100}%`;
+  document.querySelector("#last-completed").textContent = lastCompleted
+    ? `Phase ${lastCompleted.id} / ${lastCompleted.name}`
+    : "未完了";
+  document.querySelector("#next-phase").textContent = next
+    ? `Phase ${next.id} / ${next.name}`
+    : "すべて完了";
 }
 
-function renderPhaseRail(phases) {
-  const rail = document.querySelector("#phase-rail");
-  rail.replaceChildren();
-
-  phases.forEach((phase) => {
-    const button = createElement("button", "phase-button");
-    button.type = "button";
-    button.dataset.phase = String(phase.id);
-    button.dataset.status = phase.status;
-    button.setAttribute("role", "listitem");
-    button.setAttribute("aria-selected", String(phase.id === state.selectedPhase));
-    button.setAttribute("aria-label", `Phase ${phase.id}: ${phase.name}, ${statusLabel(phase.status)}`);
-    button.append(
-      createElement("span", "", String(phase.id).padStart(2, "0")),
-      createElement("small", "", statusLabel(phase.status)),
-    );
-    button.addEventListener("click", () => {
-      state.selectedPhase = phase.id;
-      renderPhaseRail(phases);
-      renderPhaseDetail(phase);
-    });
-    rail.append(button);
+function makePhaseButton(phase, phases) {
+  const button = createElement("button", "phase-button");
+  button.type = "button";
+  button.dataset.phase = String(phase.id);
+  button.setAttribute("aria-pressed", String(phase.id === state.selectedPhase));
+  button.setAttribute("aria-label", `Phase ${phase.id}: ${phase.name}、${statusLabel(phase.status)}`);
+  button.append(
+    createElement("span", "phase-number", String(phase.id).padStart(2, "0")),
+    createElement("span", "phase-name", phase.name),
+    createElement("span", "phase-state", statusLabel(phase.status)),
+  );
+  button.addEventListener("click", () => {
+    state.selectedPhase = phase.id;
+    renderPhaseLists(phases);
+    renderPhaseDetail(phase);
   });
+  return button;
+}
+
+function renderPhaseLists(phases) {
+  const activeList = document.querySelector("#active-phase-list");
+  const plannedList = document.querySelector("#planned-phase-list");
+  const active = phases.filter((phase) => phase.status !== "planned");
+  const planned = phases.filter((phase) => phase.status === "planned");
+
+  activeList.replaceChildren(...active.map((phase) => makePhaseButton(phase, phases)));
+  plannedList.replaceChildren(...planned.map((phase) => makePhaseButton(phase, phases)));
+  document.querySelector("#planned-count").textContent = `(${planned.length})`;
 }
 
 function renderPhaseDetail(phase) {
   const detail = document.querySelector("#phase-detail");
-  const copy = createElement("div", "phase-copy");
-  const status = createElement("span", `status-pill ${phase.status}`, statusLabel(phase.status));
-  const heading = createElement("h3", "", `Phase ${phase.id} — ${phase.name}`);
-  const summary = createElement("p", "", phase.summary);
+  const header = createElement("div", "phase-detail-header");
+  const title = createElement("div", "");
+  title.append(
+    createElement("span", "phase-number", `PHASE ${String(phase.id).padStart(2, "0")}`),
+    createElement("h3", "", phase.name),
+  );
+  header.append(title, createElement("span", `status-pill ${phase.status}`, statusLabel(phase.status)));
+
+  const summary = createElement("p", "phase-summary", phase.summary);
   const criterion = createElement("div", "criterion");
   criterion.append(
-    createElement("small", "", "EXIT CRITERION"),
-    createElement("span", "", phase.exit_criterion),
+    createElement("small", "", "完了条件"),
+    createElement("p", "", phase.exit_criterion),
   );
-  copy.append(status, heading, summary, criterion);
 
-  if (phase.commit_url || phase.pull_request_url) {
+  detail.replaceChildren(header, summary, criterion);
+
+  if (phase.evidence.length > 0) {
+    const evidence = createElement("dl", "evidence-list");
+    phase.evidence.forEach((item) => {
+      const row = createElement("div", "");
+      row.append(createElement("dt", "", item.label), createElement("dd", "", item.value));
+      evidence.append(row);
+    });
+    detail.append(evidence);
+  }
+
+  if (phase.artifacts.length > 0 || phase.pull_request_url || phase.commit_url) {
+    const source = createElement("div", "source-block");
+    source.append(createElement("h4", "", "SOURCE"));
     const links = createElement("div", "source-links");
+
+    phase.artifacts.forEach((artifact) => {
+      links.append(createExternalLink(`${artifact.label} ↗`, artifact.url));
+    });
     if (phase.pull_request_url) {
-      const pullRequest = createElement("a", "", "Pull Request ↗");
-      pullRequest.href = phase.pull_request_url;
-      links.append(pullRequest);
+      links.append(createExternalLink("Pull Request ↗", phase.pull_request_url));
     }
     if (phase.commit_url) {
-      const commit = createElement("a", "", `${phase.commit.slice(0, 7)} ↗`);
-      commit.href = phase.commit_url;
-      links.append(commit);
+      links.append(createExternalLink(`${phase.commit.slice(0, 7)} ↗`, phase.commit_url));
     }
-    copy.append(links);
-  }
-
-  const proof = createElement("div", "phase-proof");
-  const proofGrid = createElement("div", "proof-grid");
-  phase.evidence.forEach((item) => {
-    const card = createElement("div", "proof-item");
-    card.append(createElement("small", "", item.label), createElement("strong", "", item.value));
-    proofGrid.append(card);
-  });
-
-  if (phase.evidence.length === 0) {
-    const card = createElement("div", "proof-item");
-    card.append(
-      createElement("small", "", "EVIDENCE"),
-      createElement("strong", "", "Not produced yet"),
-    );
-    proofGrid.append(card);
-  }
-  proof.append(proofGrid);
-
-  if (phase.artifacts.length > 0) {
-    proof.append(createElement("h4", "artifact-heading", "SOURCE ARTIFACTS"));
-    const list = createElement("ul", "artifact-list");
-    phase.artifacts.forEach((artifact) => {
-      const item = createElement("li", "");
-      const link = createElement("a", "");
-      link.href = artifact.url;
-      link.append(createElement("span", "", artifact.label), createElement("code", "", artifact.path));
-      item.append(link);
-      list.append(item);
-    });
-    proof.append(list);
+    source.append(links);
+    detail.append(source);
   } else {
-    proof.append(
+    detail.append(
       createElement(
         "p",
-        "sample-note",
-        "実装・test・検証結果が揃うまで、このフェーズをcompletedにはしません。",
+        "phase-empty",
+        "実装・テスト・検証結果が揃うまで、このフェーズを完了にはしません。",
       ),
     );
   }
-
-  detail.replaceChildren(copy, proof);
 }
 
 function renderSampleList(samples) {
   const list = document.querySelector("#sample-list");
   list.replaceChildren();
+
   samples.forEach((sample, index) => {
-    const button = createElement("button", "sample-button");
+    const button = createElement("button", "sample-button", sample.label);
     button.type = "button";
-    button.setAttribute("aria-selected", String(index === state.selectedSample));
-    button.append(
-      createElement("span", "", String(index + 1).padStart(2, "0")),
-      createElement("span", ""),
-    );
-    button.lastElementChild.append(
-      createElement("strong", "", sample.label),
-      createElement("small", "", `${sample.metrics.frame_bits} bits / ${sample.compression}`),
-    );
+    button.setAttribute("aria-pressed", String(index === state.selectedSample));
     button.addEventListener("click", () => {
       state.selectedSample = index;
       renderSampleList(samples);
@@ -154,82 +158,68 @@ function renderSampleList(samples) {
   });
 }
 
-function textStage(label, value) {
-  const stage = createElement("div", "text-stage");
-  stage.append(createElement("small", "", label), createElement("p", "", value || "(empty)"));
-  return stage;
-}
-
-function metricStage(label, bytes, bits, maximum) {
-  const stage = createElement("div", "metric-stage");
-  const fill = createElement("span", "metric-fill");
-  const percentage = maximum === 0 ? 0 : Math.max(4, (bytes / maximum) * 100);
-  fill.style.setProperty("--metric-width", `${Math.min(percentage, 100)}%`);
-  stage.append(
-    createElement("small", "", label),
-    createElement("strong", "", `${formatNumber(bytes)} bytes`),
-    createElement("em", "", `${formatNumber(bits)} bits`),
-    fill,
-  );
-  return stage;
+function makeTextBox(label, value) {
+  const box = createElement("div", "text-box");
+  box.append(createElement("small", "", label), createElement("p", "", value || "(empty)"));
+  return box;
 }
 
 function renderSample(sample) {
   const detail = document.querySelector("#sample-detail");
-  const titleRow = createElement("div", "sample-title-row");
-  titleRow.append(createElement("h3", "", sample.label));
-  const badges = createElement("div", "sample-badges");
-  badges.append(
+  const header = createElement("div", "sample-title-row");
+  header.append(
+    createElement("h3", "", sample.label),
     createElement(
       "span",
-      "roundtrip-badge",
-      sample.exact_match ? "exact round-trip" : "round-trip failed",
+      `status-pill ${sample.exact_match ? "completed" : "planned"}`,
+      sample.exact_match ? "完全一致" : "復元失敗",
     ),
-    createElement("span", "compression-badge", sample.compression),
   );
-  titleRow.append(badges);
 
-  const flow = createElement("div", "text-flow");
+  const flow = createElement("div", "sample-flow");
   flow.append(
-    textStage("01 / SYNTHETIC INPUT", sample.synthetic_secret),
+    makeTextBox("公開用の秘密文", sample.synthetic_secret),
     createElement("span", "flow-arrow", "→"),
-    textStage("02 / NFC NORMALIZED", sample.normalized_text),
-    createElement("span", "flow-arrow", "→"),
-    textStage("03 / RESTORED", sample.restored_text),
+    makeTextBox("復元結果", sample.restored_text),
   );
 
-  const metrics = sample.metrics;
-  const maximum = Math.max(metrics.raw_bytes, metrics.stored_bytes, metrics.frame_bytes);
-  const pipeline = createElement("div", "metric-pipeline");
-  pipeline.append(
-    metricStage("RAW UTF-8", metrics.raw_bytes, metrics.raw_bits, maximum),
-    metricStage(`STORED / ${sample.compression}`, metrics.stored_bytes, metrics.stored_bits, maximum),
-    metricStage("VERSIONED FRAME", metrics.frame_bytes, metrics.frame_bits, maximum),
-  );
+  const metrics = createElement("dl", "sample-metrics");
+  const metricValues = [
+    ["圧縮方式", sample.compression],
+    ["元データ", `${formatNumber(sample.metrics.raw_bytes)} bytes`],
+    ["フレーム", `${formatNumber(sample.metrics.frame_bits)} bits`],
+  ];
+  metricValues.forEach(([label, value]) => {
+    const item = createElement("div", "");
+    item.append(createElement("dt", "", label), createElement("dd", "", value));
+    metrics.append(item);
+  });
+
+  detail.replaceChildren(header, flow);
+
+  if (sample.normalization_changed) {
+    const note = createElement("div", "sample-note");
+    note.append(
+      createElement("small", "", "NFC正規化後"),
+      createElement("p", "", sample.normalized_text),
+    );
+    detail.append(note);
+  }
+
+  detail.append(metrics);
 
   const frame = createElement("details", "frame-details");
-  const summary = createElement(
-    "summary",
-    "",
-    `Frame hexを見る — ${metrics.frame_bytes} bytes / header 10 bytes`,
+  frame.append(
+    createElement("summary", "", "技術情報：versioned frameを表示"),
+    createElement("code", "", sample.frame_hex),
   );
-  frame.append(summary, createElement("code", "", sample.frame_hex));
-
-  const note = createElement(
-    "p",
-    "sample-note",
-    sample.normalization_changed
-      ? `NFCにより ${metrics.input_code_points} → ${metrics.normalized_code_points} code pointsへ変化。`
-      : `NFC後 ${metrics.normalized_code_points} code points。圧縮で ${metrics.bytes_saved} bytes削減。`,
-  );
-
-  detail.replaceChildren(titleRow, flow, pipeline, frame, note);
+  detail.append(frame);
 }
 
 function render(resultDocument) {
-  state.document = resultDocument;
-  renderSummary(resultDocument);
-  renderPhaseRail(resultDocument.phases);
+  state.selectedPhase = resultDocument.project.last_completed_phase;
+  renderOverview(resultDocument);
+  renderPhaseLists(resultDocument.phases);
   renderPhaseDetail(resultDocument.phases[state.selectedPhase]);
   renderSampleList(resultDocument.samples);
   renderSample(resultDocument.samples[state.selectedSample]);
@@ -239,8 +229,7 @@ async function loadResults() {
   try {
     const response = await fetch(RESULTS_URL, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const resultDocument = await response.json();
-    render(resultDocument);
+    render(await response.json());
   } catch (error) {
     console.error("Failed to load static phase results", error);
     document.querySelector("#load-error").hidden = false;

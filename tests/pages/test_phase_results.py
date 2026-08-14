@@ -124,6 +124,24 @@ def test_static_site_references_only_committed_same_origin_assets() -> None:
     assert "https://" not in javascript
 
 
+def test_static_site_prioritizes_current_results_and_progressive_disclosure() -> None:
+    html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (PROJECT_ROOT / "pages" / "site.js").read_text(encoding="utf-8")
+
+    assert 'id="results"' in html
+    assert 'id="samples"' in html
+    assert 'id="phases"' in html
+    assert 'class="planned-phases"' in html
+    assert "文章への埋め込みはまだ未実装" in html
+    assert "versioned frameを表示" in javascript
+    assert 'setAttribute("aria-pressed"' in javascript
+
+    assert "status-console" not in html
+    assert "bit-line" not in html
+    assert "<form" not in html
+    assert "<input" not in html
+
+
 def test_json_artifact_is_valid_utf8_json() -> None:
     parsed = json.loads(DEFAULT_OUTPUT.read_text(encoding="utf-8"))
     assert parsed == build_document()

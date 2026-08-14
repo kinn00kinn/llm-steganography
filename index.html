@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="llm-steganography のフェーズ別成果、検証結果、公開用sampleを確認する静的viewer。"
+      content="llm-steganography の現在地、検証済み成果、生成済みサンプルを公開する静的ページ。"
     >
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
     >
-    <title>LLM Steganography — Phase Results</title>
+    <title>llm-steganography — 開発状況</title>
     <link rel="stylesheet" href="./pages/site.css">
     <script src="./pages/site.js" defer></script>
   </head>
@@ -19,141 +19,176 @@
     <a class="skip-link" href="#main-content">本文へ移動</a>
 
     <header class="site-header">
-      <a class="brand" href="#overview" aria-label="LLM Steganography 結果ページの先頭へ">
-        <span class="brand-mark" aria-hidden="true">LS</span>
-        <span>
-          <strong>LLM Steganography</strong>
-          <small>Research build log</small>
-        </span>
-      </a>
-      <nav aria-label="ページ内ナビゲーション">
-        <a href="#phases">Phases</a>
-        <a href="#samples">Samples</a>
-        <a href="#comparison">Comparison</a>
-        <a href="https://github.com/kinn00kinn/llm-steganography">GitHub</a>
+      <nav class="header-inner" aria-label="メインナビゲーション">
+        <a class="brand" href="#top" aria-label="ページの先頭へ">
+          <span class="brand-mark" aria-hidden="true">LS</span>
+          <span>llm-steganography</span>
+        </a>
+        <div class="header-links">
+          <a href="#results">成果</a>
+          <a href="#phases">進捗</a>
+          <a class="github-link" href="https://github.com/kinn00kinn/llm-steganography">
+            GitHub <span aria-hidden="true">↗</span>
+          </a>
+        </div>
       </nav>
     </header>
 
     <main id="main-content">
-      <section class="hero" id="overview" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <p class="eyebrow"><span class="pulse-dot"></span> STATIC RESEARCH ARTIFACT</p>
-          <h1 id="hero-title">隠す前に、<br><em>復元できること</em>を証明する。</h1>
-          <p class="hero-lead">
-            各フェーズの実装、完了条件、test結果、生成済みsampleを公開します。
-            このページはread-onlyで、秘密文や鍵の入力、推論、API通信は行いません。
+      <section class="intro-grid" id="top" aria-labelledby="page-title">
+        <div class="tile intro-copy">
+          <p class="kicker">OPEN RESEARCH / STATIC RESULTS</p>
+          <h1 id="page-title">言葉にデータを<br>隠せるか。</h1>
+          <p class="intro-lead">
+            LLMで生成する日本語へ秘密文を埋め込み、同じ鍵で完全に復元するための実験です。
+            ここでは、実装済みの結果だけを公開します。
           </p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="#samples">Phase 1 sampleを見る</a>
-            <a class="button button-secondary" href="#phases">ロードマップを見る</a>
+          <div class="intro-actions">
+            <a class="primary-action" href="#results">現在の成果を見る</a>
+            <a href="#phases">全フェーズを見る</a>
           </div>
         </div>
 
-        <aside class="status-console" aria-label="現在のプロジェクト状態">
-          <div class="console-topline">
-            <span>STATUS / MAIN</span>
-            <span class="console-live">VERIFIED</span>
+        <aside class="tile progress-card" aria-labelledby="progress-title">
+          <div class="card-heading">
+            <p class="kicker" id="progress-title">PROJECT STATUS</p>
+            <span class="status-pill completed">進行中</span>
           </div>
-          <div class="current-phase">
-            <span class="phase-index">01</span>
+          <p class="progress-value">
+            <strong data-summary="completed_phases">—</strong>
+            <span>/ <span data-summary="total_phases">—</span> phases</span>
+          </p>
+          <div class="progress-track" aria-hidden="true">
+            <span id="progress-fill"></span>
+          </div>
+          <dl class="progress-meta">
             <div>
-              <small>LAST COMPLETED</small>
-              <strong>Text payload codec</strong>
+              <dt>最後に完了</dt>
+              <dd id="last-completed">読み込み中</dd>
             </div>
-          </div>
-          <dl class="console-grid">
-            <div><dt>ROUND-TRIP</dt><dd>EXACT</dd></div>
-            <div><dt>PUBLIC MODE</dt><dd>STATIC</dd></div>
-            <div><dt>NEXT</dt><dd>AEAD</dd></div>
-            <div><dt>RUNTIME API</dt><dd>OFF</dd></div>
+            <div>
+              <dt>次に実装</dt>
+              <dd id="next-phase">読み込み中</dd>
+            </div>
           </dl>
-          <div class="bit-line" aria-hidden="true">
-            <span>01001100</span><span>01010011</span><span>01010100</span><span>01000111</span>
-          </div>
         </aside>
       </section>
 
-      <section class="summary-band" aria-label="成果サマリー">
-        <div class="summary-card"><span data-summary="completed_phases">—</span><small>completed phases</small></div>
-        <div class="summary-card"><span data-summary="phase_one_tests">—</span><small>tests at Phase 1</small></div>
-        <div class="summary-card"><span data-summary="seeded_round_trips">—</span><small>seeded round-trips</small></div>
-        <div class="summary-card"><span data-summary="public_samples">—</span><small>public samples</small></div>
+      <section class="facts" aria-label="検証サマリー">
+        <article class="fact">
+          <strong data-summary="seeded_round_trips">—</strong>
+          <span>randomized round-trips</span>
+        </article>
+        <article class="fact">
+          <strong>100%</strong>
+          <span>復元成功</span>
+        </article>
+        <article class="fact">
+          <strong data-summary="public_samples">—</strong>
+          <span>公開サンプル</span>
+        </article>
       </section>
 
-      <section class="section phase-section" id="phases" aria-labelledby="phases-title">
+      <section class="section" id="results" aria-labelledby="results-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">BUILD EVIDENCE</p>
-            <h2 id="phases-title">フェーズごとの成果</h2>
+            <p class="kicker">RESULTS</p>
+            <h2 id="results-title">いま確認できること</h2>
           </div>
-          <p>番号を選ぶと、完了条件・検証値・ソースartifactを確認できます。</p>
+          <p>できていることと、まだできていないことを分けて表示します。</p>
         </div>
 
-        <div class="phase-rail" id="phase-rail" role="list" aria-label="フェーズ一覧"></div>
-        <article class="phase-detail" id="phase-detail" aria-live="polite"></article>
+        <div class="result-grid">
+          <article class="tile result-card">
+            <span class="status-pill completed">検証済み</span>
+            <h3>秘密文を壊さずに往復できる</h3>
+            <p>
+              100文字までのUnicode文字列を正規化・圧縮・フレーム化し、元の文章へ完全に戻せます。
+            </p>
+            <ul class="check-list">
+              <li>NFC正規化とUTF-8変換</li>
+              <li>RAW / zlibの自動選択</li>
+              <li>versioned frameからの完全復元</li>
+            </ul>
+            <a class="text-link" href="#samples">生成済みサンプルで確認 <span>→</span></a>
+          </article>
+
+          <article class="tile result-card pending-card" id="comparison">
+            <span class="status-pill next">Phase 6で検証</span>
+            <h3>文章への埋め込みはまだ未実装</h3>
+            <p>
+              現在は秘密文をbinary payloadへ変換できる段階です。LLMが作る文章への埋め込みと
+              復元が成立するまで、見せかけの比較結果は掲載しません。
+            </p>
+            <div class="future-comparison" aria-label="Phase 6以降に公開する比較項目">
+              <span>何も埋め込んでいない文章</span>
+              <span>秘密文を埋め込んだ文章</span>
+              <span>復元結果と差分</span>
+            </div>
+          </article>
+        </div>
       </section>
 
-      <section class="section sample-section" id="samples" aria-labelledby="samples-title">
+      <section class="section" id="samples" aria-labelledby="samples-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">PRE-GENERATED / SYNTHETIC</p>
-            <h2 id="samples-title">Phase 1 round-trip samples</h2>
+            <p class="kicker">PRE-GENERATED SAMPLES</p>
+            <h2 id="samples-title">秘密文の往復</h2>
           </div>
-          <p>allowlist済みの架空データを、現在のcodecから事前生成しています。</p>
+          <p>公開用の架空データを、現在のcodecで事前に処理した結果です。</p>
         </div>
 
-        <div class="sample-shell">
-          <nav class="sample-list" id="sample-list" aria-label="公開sample一覧"></nav>
+        <div class="tile sample-panel">
+          <nav class="sample-tabs" id="sample-list" aria-label="公開サンプル一覧"></nav>
           <article class="sample-detail" id="sample-detail" aria-live="polite"></article>
         </div>
       </section>
 
-      <section class="section comparison-section" id="comparison" aria-labelledby="comparison-title">
-        <div class="comparison-lock" aria-hidden="true"><span>06</span></div>
-        <div>
-          <p class="eyebrow">HONEST LIMIT / NOT YET AVAILABLE</p>
-          <h2 id="comparison-title">通常文とstego文の比較はPhase 6から</h2>
-          <p>
-            現在は秘密文をbinary payloadへ変換・復元できる段階で、LLMによる文章埋め込みは
-            まだ存在しません。実際のend-to-end round-tripが成立するまで、control文とstego文の
-            差分sampleは掲載しません。
-          </p>
-          <ul>
-            <li>同一model / tokenizer / prompt / sampling条件</li>
-            <li>character diff + token-aware alignment</li>
-            <li>token rank、log-probability、entropy、embedded bits</li>
-            <li>復元結果とexact-match badge</li>
-          </ul>
+      <section class="section" id="phases" aria-labelledby="phases-title">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">ROADMAP</p>
+            <h2 id="phases-title">フェーズ別の進捗</h2>
+          </div>
+          <p>フェーズを選ぶと、完了条件・検証結果・ソースを確認できます。</p>
         </div>
-      </section>
 
-      <section class="section provenance" aria-labelledby="provenance-title">
-        <div>
-          <p class="eyebrow">PROVENANCE</p>
-          <h2 id="provenance-title">数字からsourceへ戻れること</h2>
+        <div class="phase-layout">
+          <div class="tile phase-index">
+            <div id="active-phase-list" class="phase-list" aria-label="完了済みと次のフェーズ"></div>
+            <details class="planned-phases">
+              <summary>その後の計画 <span id="planned-count"></span></summary>
+              <div id="planned-phase-list" class="phase-list" aria-label="計画中のフェーズ"></div>
+            </details>
+          </div>
+          <article class="tile phase-detail" id="phase-detail" aria-live="polite"></article>
         </div>
-        <p>
-          表示値はcommitされたJSON artifactです。generatorの再実行結果と一致しなければCIが
-          失敗します。秘密鍵・実データ・runtime endpointはartifactに含めません。
-        </p>
-        <a class="text-link" href="./pages/data/phase-results.json">公開JSONを表示 <span>↗</span></a>
       </section>
 
       <div class="load-error" id="load-error" role="alert" hidden>
-        結果JSONを読み込めませんでした。GitHub上のartifactを確認してください。
+        結果データを読み込めませんでした。
+        <a href="./pages/data/phase-results.json">公開JSONを直接確認してください。</a>
       </div>
 
       <noscript>
         <section class="noscript-message">
-          <h2>JavaScriptが無効です</h2>
-          <p>静的な成果JSONは<a href="./pages/data/phase-results.json">こちら</a>から確認できます。</p>
+          <h2>結果の表示にはJavaScriptが必要です</h2>
+          <p>
+            入力や外部通信には使用しません。静的な結果は
+            <a href="./pages/data/phase-results.json">公開JSON</a>からも確認できます。
+          </p>
         </section>
       </noscript>
     </main>
 
     <footer>
-      <span>llm-steganography / public synthetic results only</span>
-      <a href="https://github.com/kinn00kinn/llm-steganography/blob/main/SECURITY.md">Security policy</a>
+      <div class="footer-inner">
+        <span>公開用の架空サンプルのみを掲載しています。</span>
+        <div>
+          <a href="./pages/data/phase-results.json">結果JSON</a>
+          <a href="https://github.com/kinn00kinn/llm-steganography/blob/main/SECURITY.md">Security</a>
+        </div>
+      </div>
     </footer>
   </body>
 </html>
