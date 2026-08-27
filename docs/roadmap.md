@@ -2,7 +2,9 @@
 
 各 Phase は独立したテスト可能な増分とする。exit criteria を満たすまで次へ進まない。
 
-現在地: **Phase 6 mock channel完了、Phase 6.5/7の実モデル検証待ち**。
+現在地: **Phase 5B完了、Phase 5Cが次の正式工程**。Phase 6/7相当の
+mockチャネルと任意byte搬送は先行試作済みだが、実LLM/GPUのexit criteriaは
+未達のため完了扱いにしない。
 
 GitHub Pagesにはprogress viewerを先行配置し、完了済みフェーズのsource/test/sampleだけを
 表示する。これはPhase 11/12の完了扱いにはせず、comparison schemaと最終viewerのexit

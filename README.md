@@ -7,9 +7,9 @@
 共有鍵とローカル LLM を用いて、短い秘密文を自然な日本語の文章へ埋め込み、
 同じ鍵で完全に復元するための研究開発プロジェクトです。
 
-**Phase 6 mock channel** まで実装済みで、Phase 7の実Qwen end-to-end検証へ進んでいます。
-payload、暗号、integer coding、model推論、stego channelを独立に検証し、`K_stego`による
-keyed candidate mappingとarbitrary-byte transportまで接続しています。
+正式な完了地点は **Phase 5B** で、次はPhase 5Cの秘密文圧縮計測です。
+並行してPhase 6/7相当のmockチャネルと任意byte搬送を先行試作していますが、
+実LLMでの完全復元とpayload長の自己復元が残っているため未完了扱いです。
 
 ## 目標
 
@@ -78,9 +78,11 @@ squash merge します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照�
 redaction済みのsynthetic sampleだけを静的配信し、Pages上での秘密文入力、鍵入力、
 Python/LLM推論、API接続は行いません。
 
-Phase 0〜2のprogress viewerを公開します。各数値は`pages/data/phase-results.json`として
+Phase 0〜5Bの完了結果と、完了条件未達の先行試作をprogress viewerで分けて公開します。
+各数値は`pages/data/phase-results.json`として
 commitし、`scripts/export_phase_results.py --check`で現在のcodec出力と一致することをCIで
-検証します。最終的なcontrol/stego比較は実装が成立するPhase 6以降に追加します。
+検証します。実LLMでのexact decodeと比較指標が揃うまで、control/stego文例を
+「検証済み」として掲載しません。
 
 ## パッケージ構成
 

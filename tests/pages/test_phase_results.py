@@ -9,8 +9,10 @@ from typing import cast
 from lsteg.payload import decode_text_payload
 from lsteg.reporting.phase_results import (
     DEFAULT_OUTPUT,
+    PHASE_FIVE_COMMIT,
     PHASE_FOUR_COMMIT,
     PHASE_ONE_COMMIT,
+    PHASE_RESEARCH_COMMIT,
     PHASE_THREE_COMMIT,
     PHASE_TWO_COMMIT,
     PHASE_ZERO_COMMIT,
@@ -53,7 +55,7 @@ def test_phase_statuses_are_contiguous_and_honest() -> None:
     phases = cast(list[JsonObject], document["phases"])
     expected_ids = [0, 1, 2, 3, 4, "5A", "5B", "5C", "5D", 6, 7, 8, 9, 10, 11, 12]
     assert [phase["id"] for phase in phases] == expected_ids
-    assert [phase["status"] for phase in phases[:7]] == [
+    assert [phase["status"] for phase in phases] == [
         "completed",
         "completed",
         "completed",
@@ -61,20 +63,37 @@ def test_phase_statuses_are_contiguous_and_honest() -> None:
         "completed",
         "completed",
         "completed",
+        "next",
+        "planned",
+        "research",
+        "research",
+        "planned",
+        "planned",
+        "planned",
+        "planned",
+        "planned",
     ]
-    assert all(phase["status"] == "planned" for phase in phases[7:])
     assert phases[0]["commit"] == PHASE_ZERO_COMMIT
     assert phases[1]["commit"] == PHASE_ONE_COMMIT
     assert phases[2]["commit"] == PHASE_TWO_COMMIT
     assert phases[3]["commit"] == PHASE_THREE_COMMIT
     assert phases[4]["commit"] == PHASE_FOUR_COMMIT
+    assert phases[5]["commit"] == PHASE_FIVE_COMMIT
+    assert phases[6]["commit"] == PHASE_FIVE_COMMIT
+    assert phases[9]["commit"] == PHASE_RESEARCH_COMMIT
+    assert phases[10]["commit"] == PHASE_RESEARCH_COMMIT
+
+    project = cast(JsonObject, document["project"])
+    assert project["last_completed_phase"] == "5B"
+    assert project["next_phase"] == "5C"
 
 
 def test_completed_phase_artifacts_exist_and_link_to_fixed_commits() -> None:
     document = build_document()
     phases = cast(list[JsonObject], document["phases"])
 
-    for phase in phases[:5]:
+    evidenced_phases = [phase for phase in phases if phase["status"] in {"completed", "research"}]
+    for phase in evidenced_phases:
         commit = cast(str, phase["commit"])
         artifacts = cast(list[JsonObject], phase["artifacts"])
         assert artifacts
@@ -91,6 +110,8 @@ def test_every_public_sample_is_an_exact_decodable_round_trip() -> None:
 
     assert len(samples) == 5
     for sample in samples:
+        assert isinstance(sample["description"], str)
+        assert sample["description"]
         frame = bytes.fromhex(cast(str, sample["frame_hex"]))
         restored = decode_text_payload(frame)
         assert restored == sample["normalized_text"]
@@ -130,6 +151,16 @@ def test_publication_mode_has_no_runtime_or_real_secrets() -> None:
         assert not any(fragment in value for fragment in forbidden_fragments)
 
 
+def test_unvalidated_cover_comparison_does_not_publish_misleading_samples() -> None:
+    document = build_document()
+    comparison = cast(JsonObject, document["comparison"])
+
+    assert comparison["status"] == "not_validated"
+    assert "control_text" not in comparison
+    assert "stego_text" not in comparison
+    assert "極めて自然" not in "".join(_strings(document))
+
+
 def test_static_site_references_only_committed_same_origin_assets() -> None:
     html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
     javascript = (PROJECT_ROOT / "pages" / "site.js").read_text(encoding="utf-8")
@@ -144,6 +175,7 @@ def test_static_site_references_only_committed_same_origin_assets() -> None:
     assert "./pages/data/phase-results.json" in javascript
     assert "fetch(RESULTS_URL" in javascript
     assert "https://" not in javascript
+    assert b"\x00" not in (PROJECT_ROOT / "pages" / "site.css").read_bytes()
 
 
 def test_static_site_prioritizes_current_results_and_progressive_disclosure() -> None:
@@ -152,10 +184,15 @@ def test_static_site_prioritizes_current_results_and_progressive_disclosure() ->
 
     assert 'id="results"' in html
     assert 'id="samples"' in html
+    assert "暗号化と復元の確認" in html
+    assert "5種類の架空の固定文" in html
+    assert "sample.description" in javascript
     assert 'id="phases"' in html
     assert 'class="planned-phases"' in html
-    assert "文章への埋め込みはまだ未実装" in html
-    assert "inner frameを表示" in javascript
+    assert "文章への埋め込みは先行試作まで" in html
+    assert "暗号化前の内部フレーム" in javascript
+    assert "先行試作" in javascript
+    assert "自然な文章に秘密を隠せる" not in javascript
     assert 'setAttribute("aria-pressed"' in javascript
 
     assert "status-console" not in html

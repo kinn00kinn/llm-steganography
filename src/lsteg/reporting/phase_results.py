@@ -28,17 +28,40 @@ PHASE_ONE_COMMIT = "60178e9879c36b80e4ecdb525e4d6ce8a1bba437"
 PHASE_TWO_COMMIT = "da6846a37341bd768a09436dc1a94bcb2756fa40"
 PHASE_THREE_COMMIT = "61035a3347f109743c6a2e5e418942c98ebe3e6f"
 PHASE_FOUR_COMMIT = "88189a3a18b55be51193ba19ffc79c54ffd8bcf1"
+PHASE_FIVE_COMMIT = "d2d680668e4840c6c7405790c53e742180ed142d"
+PHASE_RESEARCH_COMMIT = "9faf27e3b22210a32381e73243d713fe79ab6680"
 
-PUBLIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
-    ("raw-short", "短い秘密文", "秘密"),
-    ("nfc-normalization", "NFC正規化", "e\u0301を含む公開用サンプル"),
+PUBLIC_SAMPLES: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "raw-short",
+        "最小の日本語",
+        "2文字の短い秘密文で、暗号化と復元の基本動作を確認します。",
+        "秘密",
+    ),
+    (
+        "nfc-normalization",
+        "文字表現の統一",
+        "見た目が同じでも内部表現が異なる文字を、NFC形式に統一して復元します。",
+        "e\u0301を含む公開用サンプル",
+    ),
     (
         "japanese-note",
-        "日本語メモ",
+        "一般的な日本語文",
+        "短いメモ程度の自然な日本語文を、一文字も変えずに復元します。",
         "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
     ),
-    ("max-repeat", "100文字の境界", "あ" * 100),
-    ("max-utf8", "400 UTF-8 bytesの境界", "😀" * 100),
+    (
+        "max-repeat",
+        "100文字の上限",
+        "仕様上の最大文字数である100文字ちょうどを扱えることを確認します。",
+        "あ" * 100,
+    ),
+    (
+        "max-utf8",
+        "400バイトの上限",
+        "1文字が4バイトの絵文字を100個使い、UTF-8の最大400バイトを確認します。",
+        "😀" * 100,
+    ),
 )
 
 
@@ -212,83 +235,158 @@ def _build_phases() -> list[JsonValue]:
         ),
     ]
 
+    phase_five_a = _phase(
+        "5A",
+        "カバー文の容量計測",
+        "completed",
+        "15サンプルの初期計測で、下位10%点の容量は173.3 bitsと判明。",
+        "容量分布を計測し、要求水準を判定できる基準を作る。",
+    )
+    phase_five_a["commit"] = PHASE_FIVE_COMMIT
+    phase_five_a["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_FIVE_COMMIT}"
+    phase_five_a["pull_request_url"] = f"{REPOSITORY_URL}/pull/9"
+    phase_five_a["evidence"] = [
+        {"label": "計測サンプル", "value": "15"},
+        {"label": "下位10%点の容量", "value": "173.3 bits"},
+        {"label": "計測した値", "value": "LLMの生のエントロピー"},
+        {"label": "注意", "value": "実際の埋め込み容量ではない"},
+    ]
+    phase_five_a["artifacts"] = [
+        _artifact("容量計測スクリプト", "scripts/probe_entropy.py", PHASE_FIVE_COMMIT),
+        _artifact("固定モデル設定", "config/models/qwen3-1.7b-debug.json", PHASE_FIVE_COMMIT),
+    ]
+
+    phase_five_b = _phase(
+        "5B",
+        "プロンプト・生成設定の探索",
+        "completed",
+        (
+            "生のLLMエントロピーでは、ニュース形式の下位10%点が"
+            "435.3 bitsへ改善。実際の埋め込み容量は再計測が必要。"
+        ),
+        "比較した設定の中から、次の実チャネル計測に使う候補を選ぶ。",
+    )
+    phase_five_b["commit"] = PHASE_FIVE_COMMIT
+    phase_five_b["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_FIVE_COMMIT}"
+    phase_five_b["pull_request_url"] = f"{REPOSITORY_URL}/pull/9"
+    phase_five_b["evidence"] = [
+        {"label": "初期の下位10%点", "value": "173.3 bits"},
+        {"label": "最良候補の下位10%点", "value": "435.3 bits"},
+        {"label": "計測した値", "value": "LLMの生のエントロピー"},
+        {"label": "次の検証", "value": "整数化後の実チャネル容量"},
+    ]
+    phase_five_b["artifacts"] = [
+        _artifact("容量計測スクリプト", "scripts/probe_entropy.py", PHASE_FIVE_COMMIT),
+        _artifact("比較デモ", "scripts/demo_e2e_steg.py", PHASE_FIVE_COMMIT),
+        _artifact(
+            "計測ベースライン", "config/models/qwen3-1.7b-debug-baseline.json", PHASE_FIVE_COMMIT
+        ),
+    ]
+
+    phase_six = _phase(
+        6,
+        "埋め込みチャネルの最小試作",
+        "research",
+        (
+            "mockモデルではビット列の埋め込み・抽出と文字列化を完全往復。"
+            "実LLMでの同じ検証が残っている。"
+        ),
+        "別processと実LLMで、短いpayloadを文字列経由で100%復元する。",
+    )
+    phase_six["commit"] = PHASE_RESEARCH_COMMIT
+    phase_six["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_RESEARCH_COMMIT}"
+    phase_six["evidence"] = [
+        {"label": "mock埋め込み", "value": "完全往復"},
+        {"label": "文字列搬送", "value": "mockで検証済み"},
+        {"label": "候補の鍵付き並べ替え", "value": "HMAC-SHA256 v1"},
+        {"label": "実LLM/GPU", "value": "未検証 / exit criteria未達"},
+    ]
+    phase_six["artifacts"] = [
+        _artifact("埋め込みエンジン", "src/lsteg/steg/engine.py", PHASE_RESEARCH_COMMIT),
+        _artifact("鍵付き候補対応", "src/lsteg/steg/mapping.py", PHASE_RESEARCH_COMMIT),
+        _artifact("エンジン試験", "tests/steg/test_engine.py", PHASE_RESEARCH_COMMIT),
+        _artifact(
+            "搬送不変性試験", "tests/steg/test_tokenizer_transport.py", PHASE_RESEARCH_COMMIT
+        ),
+    ]
+
+    phase_seven = _phase(
+        7,
+        "LLMと整数Range Codingの接続",
+        "research",
+        (
+            "任意bytesチャネル、搬送安全フィルタ、コンパクトAEADを先行実装。"
+            "実モデル試験と長さの自己復元は未完了。"
+        ),
+        "実LLMの決定的整数頻度で、暗号化payloadを長さの別途共有なしに完全復元する。",
+    )
+    phase_seven["commit"] = PHASE_RESEARCH_COMMIT
+    phase_seven["commit_url"] = f"{REPOSITORY_URL}/commit/{PHASE_RESEARCH_COMMIT}"
+    phase_seven["evidence"] = [
+        {"label": "モデル非依存試験", "value": "385 passed"},
+        {"label": "任意bytes", "value": "mockで完全往復"},
+        {"label": "GPU/実モデル試験", "value": "8 skipped"},
+        {"label": "payload長の自己復元", "value": "未実装"},
+    ]
+    phase_seven["artifacts"] = [
+        _artifact("任意bytesチャネル", "src/lsteg/steg/engine.py", PHASE_RESEARCH_COMMIT),
+        _artifact("搬送安全フィルタ", "src/lsteg/steg/transport.py", PHASE_RESEARCH_COMMIT),
+        _artifact(
+            "コンパクト認証付き暗号", "src/lsteg/payload/compact_crypto.py", PHASE_RESEARCH_COMMIT
+        ),
+        _artifact("統合リリースゲート", "tests/steg/test_release_gate.py", PHASE_RESEARCH_COMMIT),
+    ]
+
     later_phases = [
-        _phase(
-            "5A",
-            "Cover entropy probe (Phase 5A)",
-            "completed",
-            "15サンプルの実測で初期設定のp10は173.3 bitsと判明。",
-            "p10 capacityが要求水準を満たせるか判定する基準を作る。",
-        ),
-        _phase(
-            "5B",
-            "Prompt/T/model sweep (Phase 5B)",
-            "completed",
-            (
-                "raw LM entropyではニュースpromptによりp10が435.3 bitsへ改善。"
-                "実channel値は再測定待ち。"
-            ),
-            "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
-        ),
+        phase_five_a,
+        phase_five_b,
         _phase(
             "5C",
-            "Secret LM compression (Phase 5C)",
-            "planned",
-            "秘密文のLLMによるlossless圧縮符号長を実測。",
-            "100文字が数百bitまで圧縮可能か検証する。",
+            "秘密文のLLM圧縮",
+            "next",
+            "100文字の秘密文を、復元可能なままどこまで小さくできるか計測する。",
+            "代表的な100文字の合成秘密文100件の符号長分布を確定する。",
         ),
         _phase(
             "5D",
-            "End-to-end budget (Phase 5D)",
+            "500文字に収まるかの容量判定",
             "planned",
-            "p90(secret+crypto) < p10(cover capacity) を判定。",
-            "500文字GO/NO-GOを最終決定する。",
+            "秘密文・暗号化・カバー文の実測値をまとめて比較する。",
+            "500文字目標を維持できるかGO/NO-GOを決定する。",
         ),
-        _phase(
-            6,
-            "1-bit/token spike",
-            "planned",
-            "process をまたぐ短い payload の完全復元。",
-            "context、tokenizer、prompt、keyed mapping の同期を検証する。",
-        ),
-        _phase(
-            7,
-            "LLM + Range Coding",
-            "planned",
-            "deterministic integer frequenciesとRange Codingを接続。",
-            "小さいpayloadをend-to-endで完全復元する。",
-        ),
+        phase_six,
+        phase_seven,
         _phase(
             8,
-            "100文字試験",
+            "100文字の完全復元試験",
             "planned",
             "cover上限を1000文字から段階的に短縮。",
             "100秘密文字のreliable round-tripを達成する。",
         ),
         _phase(
             9,
-            "自然さ・capacity",
+            "文章の自然さと容量の改善",
             "planned",
             "control/stegoを同じmanifestで比較。",
             "reliabilityを保ったまま品質・容量指標を改善する。",
         ),
         _phase(
             10,
-            "再現性hardening",
+            "再起動後も復元できる再現性",
             "planned",
             "process、再起動、device差を段階的に検証。",
             "再起動後の互換とartifact mismatch検出を保証する。",
         ),
         _phase(
             11,
-            "Sample export / viewer",
+            "公開サンプルと比較画面",
             "planned",
             "sanitized sample schemaと比較viewerを安定化。",
             "公開sampleがschema/redaction gateを通過する。",
         ),
         _phase(
             12,
-            "Pages / deploy",
+            "GitHub Pagesとローカル配布",
             "planned",
             "生成済みsampleをPagesで継続公開。",
             "固定manifestのsample siteとlocal runtimeを個別検証する。",
@@ -297,7 +395,7 @@ def _build_phases() -> list[JsonValue]:
     return [phase_zero, phase_one, phase_two, phase_three, phase_four, *later_phases]
 
 
-def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
+def _build_sample(sample_id: str, label: str, description: str, secret_text: str) -> JsonObject:
     encoded = encode_text_payload(secret_text)
     inner_restored = decode_text_payload(encoded.frame)
     if inner_restored != encoded.normalized_text:  # pragma: no cover - codec invariant
@@ -309,6 +407,7 @@ def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
     return {
         "id": sample_id,
         "label": label,
+        "description": description,
         "synthetic_secret": secret_text,
         "normalized_text": encoded.normalized_text,
         "restored_text": restored,
@@ -341,7 +440,8 @@ def _build_sample(sample_id: str, label: str, secret_text: str) -> JsonObject:
 def build_document() -> JsonObject:
     """Build a deterministic public document from allowlisted synthetic samples."""
     samples: list[JsonValue] = [
-        _build_sample(sample_id, label, secret) for sample_id, label, secret in PUBLIC_SAMPLES
+        _build_sample(sample_id, label, description, secret)
+        for sample_id, label, description, secret in PUBLIC_SAMPLES
     ]
     return {
         "schema_version": 1,
@@ -349,8 +449,8 @@ def build_document() -> JsonObject:
             "name": "llm-steganography",
             "repository": REPOSITORY,
             "repository_url": REPOSITORY_URL,
-            "last_completed_phase": 4,
-            "next_phase": 5,
+            "last_completed_phase": "5B",
+            "next_phase": "5C",
         },
         "publication": {
             "mode": "static_pre_generated_samples",
@@ -359,7 +459,7 @@ def build_document() -> JsonObject:
             "contains_real_secrets": False,
         },
         "summary": {
-            "completed_phases": 5,
+            "completed_phases": 7,
             "phase_one_tests": 48,
             "seeded_round_trips": 1_000,
             "secure_round_trips": 500,
@@ -370,10 +470,17 @@ def build_document() -> JsonObject:
         "phases": _build_phases(),
         "samples": samples,
         "comparison": {
-            "status": "available",
-            "available_from_phase": 5,
-            "control_text": "架空のニュース記事：\n本日午後、東京都内のある病院で、2つの外科医が患者に対して画期的な手術を成功させたと発表しました。この手術は、最新のロボット技術を活用したもので、患者への負担を大幅に軽減できると期待されています。病院関係者によると、患者の術後の経過は極めて良好で、早ければ来週にも退院できる見込みとのことです。今後は他の医療機関への技術提供も視野に入れ、さらなる医療の質の向上を目指すとしています。",  # noqa: E501, RUF001
-            "stego_text": "架空のニュース記事：\n本日午後、東京都内のある病院で、2つの外科医が患者に対して医療行為を実施したが、実際には当該患者に医療行為を実施したが、患者の家庭教師・親権代理・介護者（現職）の一人が、クリニックの薬の処方や医療行為の実施について、医療機関の医師が秘密の内容を共有したがった。医療機関は、この情報の発覚後、患者の保護者に迅速に対応して、医学的および法的な理由の下で、患者に手術が中止された。また、医師は、法的責任については、自己終了するとして、状況を落ち着かせるため、病院の各医師にこの情報を正式に告知した。医療機関は、医師による秘密の共有のことを発覚したが、現在、処方笺の記録を確認し、医師の職業的倫理に関する問題としての対応調査を行うことになりました。\n分析",  # noqa: E501, RUF001
+            "status": "not_validated",
+            "title": "文章への埋め込み品質はまだ公開結果にできません",
+            "reason": (
+                "先行試作はありますが、実LLMでの完全復元、生成条件の固定、"
+                "容量・自然さの比較がそろっていないためです。"
+            ),
+            "required_evidence": [
+                "同じ公開プロトコルでの秘密文100%復元",
+                "モデル・プロンプト・実行環境の固定",
+                "通常生成と埋め込み生成の容量・品質比較",
+            ],
         },
     }
 
