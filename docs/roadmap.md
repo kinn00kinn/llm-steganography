@@ -219,3 +219,11 @@ synthetic sample と静的 viewer だけを配置し、runtime backend へ接続
 1 Phase をさらに、小さな testable change に分ける。各変更で docs、実装、test を揃え、
 品質チェック結果を確認してから checkpoint/commit を作る。model download や GPU setup は
 Phase 4 まで行わない。
+
+
+### Phase 7 transport-canonicalization gate
+
+Before treating Unicode text as the deployed carrier, the active token alphabet must
+be filtered so every emitted cover prefix satisfies
+`tokenize(detokenize(prefix)) == prefix`.  Capacity benchmarks used for deployment
+must include this filter; raw/top-k entropy without the constraint is diagnostic only.

@@ -147,3 +147,24 @@ uv run --extra model python scripts/demo_e2e_steg.py --key-file shared.key
 ```
 
 `shared.key`、secret plaintext、derived key bytesはbenchmark/logへ出力しない。
+
+## 9. Japanese-prose LoRA research environment
+
+LoRA/QLoRA packages are optional research tooling and are deliberately not added to the normal
+`model` extra or `uv.lock`.  This prevents Windows-specific bitsandbytes wheels from affecting
+the inference/test environment.  Keep using `uv`, but install the pinned training requirements
+into the already-synchronized model virtual environment:
+
+```powershell
+uv sync --extra model
+uv pip install --python .venv\Scripts\python.exe -r requirements-training.txt
+.venv\Scripts\python.exe scripts/probe_lora_training_stack.py --backward-smoke
+```
+
+The backward smoke is required before a long run.  It loads the pinned Qwen3-1.7B artifact in
+NF4, injects the configured LoRA, runs completion-only CE plus the sparse base-model KL term, and
+checks that trainable gradients are finite.
+
+Teacher JSONL and all adapter/model outputs are generated under ignored `data/training/` and
+`artifacts/` paths.  Do not commit generated teacher prose, adapters, merged weights, or evaluation
+outputs.  Commit only versioned recipes, filtering/training/evaluation code, and synthetic tests.

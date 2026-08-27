@@ -1,0 +1,5 @@
+# Optional Japanese-prose QLoRA stack. Keep separate from the inference lock so
+# normal `uv run pytest` remains unchanged.
+accelerate==1.14.0
+bitsandbytes==0.49.2
+peft==0.19.1

@@ -224,7 +224,10 @@ def _build_phases() -> list[JsonValue]:
             "5B",
             "Prompt/T/model sweep (Phase 5B)",
             "completed",
-            "raw LM entropyではニュースpromptによりp10が435.3 bitsへ改善。実channel値は再測定待ち。",
+            (
+                "raw LM entropyではニュースpromptによりp10が435.3 bitsへ改善。"
+                "実channel値は再測定待ち。"
+            ),
             "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
         ),
         _phase(

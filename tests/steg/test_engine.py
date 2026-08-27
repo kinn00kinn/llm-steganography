@@ -386,7 +386,7 @@ class TestByteChannelRoundTrip:
 
     def test_too_small_token_budget_fails_closed(self) -> None:
         backend = _MockBackend()
-        with pytest.raises(InsufficientCoverCapacityError):
+        with pytest.raises(InsufficientCoverCapacityError) as caught:
             hide_bytes(
                 backend,
                 "hello",
@@ -395,6 +395,12 @@ class TestByteChannelRoundTrip:
                 config=SteganographyConfig(top_k=2),
                 max_tokens=1,
             )
+        diagnostics = caught.value.diagnostics
+        assert diagnostics is not None
+        assert diagnostics.target_bits > diagnostics.settled_bits
+        assert diagnostics.generated_tokens == 1
+        assert diagnostics.mean_table_entropy > 0.0
+        assert "max_tokens=1 exhausted" in diagnostics.reason
 
     def test_excluded_tokens_never_appear(self) -> None:
         backend = _MockBackend()
@@ -481,6 +487,10 @@ class TestSteganographyConfig:
         with pytest.raises(ValueError, match="frequency_total must be"):
             SteganographyConfig(frequency_total=MAX_FREQUENCY_TOTAL + 1)
 
+    def test_transport_invariance_flag_must_be_bool(self) -> None:
+        with pytest.raises(TypeError, match="enforce_transport_invariance"):
+            SteganographyConfig(enforce_transport_invariance=1)  # type: ignore[arg-type]
+
 
 # ---------------------------------------------------------------------------
 # hide() / extract() property tests
@@ -506,3 +516,63 @@ class TestExtractProperties:
         backend = _MockBackend()
         result = extract(backend, "hi", [], stego_key=_STEGO_KEY)
         assert isinstance(result, CodedBits)
+
+
+def test_config_validates_no_repeat_ngram_size() -> None:
+    assert SteganographyConfig(no_repeat_ngram_size=3).no_repeat_ngram_size == 3
+    with pytest.raises(ValueError):
+        SteganographyConfig(no_repeat_ngram_size=1)
+    with pytest.raises(TypeError):
+        SteganographyConfig(no_repeat_ngram_size=True)
+
+
+def test_byte_channel_round_trip_with_no_repeat_ngram_filter() -> None:
+    backend = _MockBackend()
+    config = SteganographyConfig(top_k=64, no_repeat_ngram_size=3)
+    payload = b"anti-loop round trip"
+    cover = hide_bytes(
+        backend,
+        "hello",
+        payload,
+        stego_key=_STEGO_KEY,
+        config=config,
+    )
+    recovered = extract_bytes(
+        backend,
+        "hello",
+        cover,
+        len(payload),
+        stego_key=_STEGO_KEY,
+        config=config,
+    )
+    assert recovered == payload
+
+
+def test_config_validates_presence_penalty() -> None:
+    assert SteganographyConfig(presence_penalty=0.4).presence_penalty == 0.4
+    with pytest.raises(ValueError, match="presence_penalty"):
+        SteganographyConfig(presence_penalty=2.1)
+    with pytest.raises(TypeError, match="presence_penalty"):
+        SteganographyConfig(presence_penalty=True)
+
+
+def test_byte_channel_round_trip_with_presence_penalty() -> None:
+    backend = _MockBackend()
+    config = SteganographyConfig(top_k=64, presence_penalty=0.5)
+    payload = b"presence-penalty-round-trip"
+    cover = hide_bytes(
+        backend,
+        "hello",
+        payload,
+        stego_key=_STEGO_KEY,
+        config=config,
+    )
+    recovered = extract_bytes(
+        backend,
+        "hello",
+        cover,
+        len(payload),
+        stego_key=_STEGO_KEY,
+        config=config,
+    )
+    assert recovered == payload

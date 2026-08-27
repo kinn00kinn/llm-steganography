@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "base_model_id": "Qwen/Qwen3-1.7B",
+  "teacher_model": "qwen2.5:7b",
+  "teacher_scenarios": 600,
+  "teacher_completions_per_scenario": 4,
+  "min_chars": 220,
+  "max_chars": 650,
+  "min_japanese_ratio": 0.9,
+  "lora_rank": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.05,
+  "target_modules": "all-linear",
+  "learning_rate": 0.0001,
+  "epochs": 2,
+  "gradient_accumulation_steps": 8,
+  "max_sequence_tokens": 768,
+  "label_smoothing": 0.05,
+  "kl_weight": 0.2,
+  "kl_positions_per_example": 8,
+  "seed": 20260816
+}

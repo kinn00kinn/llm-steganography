@@ -28,15 +28,22 @@ def test_permutation_preserves_token_frequency_pairs() -> None:
 
 
 def test_same_inputs_are_deterministic() -> None:
-    args = dict(
-        token_ids=[10, 11, 12, 13],
-        table=FrequencyTable([4, 3, 2, 1]),
+    token_ids = [10, 11, 12, 13]
+    table = FrequencyTable([4, 3, 2, 1])
+    ids_1, table_1 = keyed_candidate_permutation(
+        token_ids,
+        table,
         stego_key=_KEY_A,
         position=7,
         context_token_ids=[100, 200],
     )
-    ids_1, table_1 = keyed_candidate_permutation(**args)
-    ids_2, table_2 = keyed_candidate_permutation(**args)
+    ids_2, table_2 = keyed_candidate_permutation(
+        token_ids,
+        table,
+        stego_key=_KEY_A,
+        position=7,
+        context_token_ids=[100, 200],
+    )
     assert ids_1 == ids_2
     assert table_1.frequencies == table_2.frequencies
 

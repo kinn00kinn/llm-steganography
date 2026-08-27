@@ -1,0 +1,4 @@
+# Runtime required to load the pinned Qwen2.5 GPTQ checkpoint through Transformers.
+# Keep this separate from the default model extra so Qwen3-1.7B users do not
+# install the heavier GPTQ runtime unless they opt into the 7B experiment.
+gptqmodel==7.3.1

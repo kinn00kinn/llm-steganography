@@ -6,7 +6,7 @@
   "token_ids_sha256": "1a320d45e1b4097566be4d29c1c51db99845e1a9d259261145d99d842b312898",
   "tokenization_round_trip": true,
   "vocabulary_size": 151936,
-  "logits_sha256": "69a43be4f6e8ec73c37daeb3c1dec7c2143f5e27b72d8c089ebb1d982f6f682e",
+  "logits_sha256": "0256faa15dd452d03042aa78190fb5fa163e736ed23fe9158960fd51785d3810",
   "argmax_token_id": 83751,
   "runtime": {
     "python_version": "3.12.10",
