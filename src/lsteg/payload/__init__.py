@@ -9,6 +9,15 @@ from lsteg.payload.codec import (
     encode_text_payload,
     normalize_secret,
 )
+from lsteg.payload.compact_crypto import (
+    COMPACT_FIXED_OVERHEAD,
+    COMPACT_NONCE_SIZE,
+    COMPACT_SECURE_VERSION,
+    CompactSecurePayloadMetrics,
+    EncodedCompactSecureTextPayload,
+    decode_compact_secure_text_payload,
+    encode_compact_secure_text_payload,
+)
 from lsteg.payload.crypto import (
     MAX_SECURE_FRAME_SIZE,
     EncodedSecureTextPayload,
@@ -52,6 +61,9 @@ from lsteg.payload.secure_framing import (
 )
 
 __all__ = [
+    "COMPACT_FIXED_OVERHEAD",
+    "COMPACT_NONCE_SIZE",
+    "COMPACT_SECURE_VERSION",
     "MASTER_KEY_FILE_SIZE",
     "MASTER_KEY_FILE_VERSION",
     "MASTER_KEY_SIZE",
@@ -62,8 +74,10 @@ __all__ = [
     "SECURE_NONCE_SIZE",
     "TEXT_FRAME_VERSION",
     "AuthenticationError",
+    "CompactSecurePayloadMetrics",
     "CompressionMethod",
     "DerivedKeys",
+    "EncodedCompactSecureTextPayload",
     "EncodedSecureTextPayload",
     "EncodedTextPayload",
     "EncryptionAlgorithm",
@@ -80,10 +94,12 @@ __all__ = [
     "UnsupportedPayloadAlgorithmError",
     "UnsupportedPayloadVersionError",
     "create_master_key_file",
+    "decode_compact_secure_text_payload",
     "decode_secure_text_payload",
     "decode_text_payload",
     "decrypt_payload_frame",
     "derive_keys",
+    "encode_compact_secure_text_payload",
     "encode_secure_text_payload",
     "encode_text_payload",
     "encrypt_payload_frame",

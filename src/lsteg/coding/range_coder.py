@@ -123,6 +123,11 @@ class RangeDecoder:
         for _ in range(STATE_BITS):
             self._code = (self._code << 1) | self._reader.read_or_zero()
 
+    @property
+    def input_bits_read(self) -> int:
+        """Return source-bit read position, including zero lookahead past the payload."""
+        return self._reader.position
+
     def decode(self, table: FrequencyTable) -> int:
         """Decode one symbol with the same frequency table used by the encoder."""
         interval_size = self._high - self._low + 1
@@ -194,6 +199,11 @@ class _BitReader:
     def __init__(self, coded: CodedBits) -> None:
         self._coded = coded
         self._position = 0
+
+    @property
+    def position(self) -> int:
+        """Return the number of source/lookahead bits requested so far."""
+        return self._position
 
     def read_or_zero(self) -> int:
         if self._position >= self._coded.bit_length:

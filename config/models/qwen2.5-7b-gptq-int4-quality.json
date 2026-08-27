@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "role": "quality",
+  "model_id": "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4",
+  "model_revision": "e9c932ac1893a49ae0fc497ad6e1e86e2e39af20",
+  "tokenizer_id": "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4",
+  "tokenizer_revision": "e9c932ac1893a49ae0fc497ad6e1e86e2e39af20",
+  "license": "Apache-2.0",
+  "transformers_version": "5.15.0",
+  "torch_version": "2.13.0+cu130",
+  "dtype": "float16",
+  "device": "cuda:0",
+  "numeric_policy": "cuda-gptq-int4-same-runtime-device-v1",
+  "max_context_tokens": 2048,
+  "trust_remote_code": false
+}

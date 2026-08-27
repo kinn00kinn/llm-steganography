@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from lsteg.model import NUMERIC_POLICY, InvalidModelManifestError, ModelManifest
+from lsteg.model import (
+    GPTQ_NUMERIC_POLICY,
+    NUMERIC_POLICY,
+    InvalidModelManifestError,
+    ModelManifest,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = PROJECT_ROOT / "config" / "models" / "qwen3-1.7b-debug.json"
@@ -67,3 +72,14 @@ def test_manifest_rejects_missing_and_unknown_fields() -> None:
 
     with pytest.raises(InvalidModelManifestError, match=r"missing=.*license.*unknown"):
         ModelManifest.from_mapping(raw)
+
+
+def test_quality_gptq_manifest_uses_supported_quantized_policy() -> None:
+    manifest = ModelManifest.from_path(
+        PROJECT_ROOT / "config" / "models" / "qwen2.5-7b-gptq-int4-quality.json"
+    )
+
+    assert manifest.role == "quality"
+    assert manifest.numeric_policy == GPTQ_NUMERIC_POLICY
+    assert manifest.dtype == "float16"
+    assert manifest.device == "cuda:0"

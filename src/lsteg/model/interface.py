@@ -71,6 +71,47 @@ class Logits(Sequence[float]):
 
 
 @dataclass(frozen=True, slots=True)
+class RankedLogits:
+    """A small ranked subset of next-token logits.
+
+    Token IDs are ordered by descending logit, with exact ties resolved by
+    ascending token ID.  Backends may compute this subset on-device so the
+    full vocabulary never needs to cross the device/host boundary.
+    """
+
+    token_ids: tuple[int, ...]
+    values: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if not self.token_ids:
+            raise ValueError("ranked logits must contain at least one token")
+        if len(self.token_ids) != len(self.values):
+            raise ValueError("token_ids and values must have identical lengths")
+        if len(set(self.token_ids)) != len(self.token_ids):
+            raise ValueError("ranked token IDs must be unique")
+        previous: tuple[float, int] | None = None
+        canonical_values: list[float] = []
+        for token_id, value in zip(self.token_ids, self.values, strict=True):
+            if isinstance(token_id, bool) or not isinstance(token_id, int) or token_id < 0:
+                raise TypeError("ranked token IDs must be non-negative integers")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError("ranked logit values must be numbers")
+            numeric = float(value)
+            if not isfinite(numeric):
+                raise ValueError("ranked logit values must be finite")
+            try:
+                numeric = _FLOAT32.unpack(_FLOAT32.pack(numeric))[0]
+            except OverflowError as error:
+                raise ValueError("ranked logit value is outside float32 range") from error
+            rank_key = (-numeric, token_id)
+            if previous is not None and rank_key < previous:
+                raise ValueError("ranked logits are not in canonical order")
+            previous = rank_key
+            canonical_values.append(numeric)
+        object.__setattr__(self, "values", tuple(canonical_values))
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeFingerprint:
     """Observed inference environment needed to interpret reproducibility claims."""
 
@@ -94,6 +135,34 @@ class RuntimeFingerprint:
         }
 
 
+class IncrementalLogitsSession(Protocol):
+    """Stateful next-logit stream for autoregressive decoding.
+
+    ``next_logits`` returns the distribution after the current context.
+    ``append`` consumes exactly one generated token and advances the session.
+    """
+
+    def next_logits(self) -> Logits: ...
+
+    def append(self, token_id: int) -> None: ...
+
+
+@runtime_checkable
+class RankedIncrementalLogitsSession(IncrementalLogitsSession, Protocol):
+    """Optional on-device top-k/entropy operations for fast stego decoding."""
+
+    def top_logits(
+        self,
+        top_k: int,
+        *,
+        excluded_token_ids: Sequence[int] = (),
+        penalized_token_ids: Sequence[int] = (),
+        presence_penalty: float = 0.0,
+    ) -> RankedLogits: ...
+
+    def entropy(self, *, temperature: float = 1.0) -> float: ...
+
+
 @runtime_checkable
 class LanguageModelBackend(Protocol):
     """The only model behavior exposed to steganography layers."""
@@ -112,3 +181,10 @@ class LanguageModelBackend(Protocol):
     def detokenize(self, token_ids: Sequence[int]) -> str: ...
 
     def next_logits(self, token_ids: Sequence[int]) -> Logits: ...
+
+
+@runtime_checkable
+class IncrementalLanguageModelBackend(LanguageModelBackend, Protocol):
+    """Optional backend capability for KV-cached sequential inference."""
+
+    def start_incremental_logits(self, token_ids: Sequence[int]) -> IncrementalLogitsSession: ...

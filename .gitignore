@@ -30,4 +30,6 @@ Thumbs.db
 .env.*
 !.env.example
 artifacts/
+data/training/
 benchmarks/output/
+llm-steg-*.patch

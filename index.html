@@ -12,8 +12,8 @@
       content="default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
     >
     <title>llm-steganography — 開発状況</title>
-    <link rel="stylesheet" href="./pages/site.css?v=da8d96ca0611">
-    <script src="./pages/site.js?v=9a9f77b080bd" defer></script>
+    <link rel="stylesheet" href="./pages/site.css?v=85c2524ad18b">
+    <script src="./pages/site.js?v=7f2fd30a1ed0" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">本文へ移動</a>
@@ -56,7 +56,7 @@
           </div>
           <p class="progress-value">
             <strong data-summary="completed_phases">—</strong>
-            <span>/ <span data-summary="total_phases">—</span> phases</span>
+            <span>/ <span data-summary="total_phases">—</span> 工程</span>
           </p>
           <div class="progress-track" aria-hidden="true">
             <span id="progress-fill"></span>
@@ -77,11 +77,11 @@
       <section class="facts" aria-label="検証サマリー">
         <article class="fact">
           <strong data-summary="secure_round_trips">—</strong>
-          <span>secure round-trips</span>
+          <span>暗号化→復元テスト</span>
         </article>
         <article class="fact">
           <strong>100%</strong>
-          <span>復元成功</span>
+          <span>実施済みテストの復元成功率</span>
         </article>
         <article class="fact">
           <strong data-summary="public_samples">—</strong>
@@ -114,16 +114,16 @@
           </article>
 
           <article class="tile result-card pending-card" id="comparison">
-            <span class="status-pill next">Phase 6で検証</span>
-            <h3>文章への埋め込みはまだ未実装</h3>
+            <span class="status-pill research">実モデル検証待ち</span>
+            <h3>文章への埋め込みは先行試作まで</h3>
             <p>
-              現在は秘密文をbinary payloadへ変換できる段階です。LLMが作る文章への埋め込みと
-              復元が成立するまで、見せかけの比較結果は掲載しません。
+              mockモデルでの埋め込みと復元は通っていますが、実LLMでの完全復元と
+              品質評価は未完了です。条件のそろわない文例を「検証済み」とは掲載しません。
             </p>
-            <div class="future-comparison" aria-label="Phase 6以降に公開する比較項目">
-              <span>何も埋め込んでいない文章</span>
-              <span>秘密文を埋め込んだ文章</span>
-              <span>復元結果と差分</span>
+            <div class="future-comparison" aria-label="公開結果に必要な検証">
+              <span>同じ条件で作った通常文と埋め込み文</span>
+              <span>秘密文が一文字も違わず復元できた記録</span>
+              <span>文字数・容量・自然さを比較できる数値</span>
             </div>
           </article>
         </div>
@@ -132,10 +132,13 @@
       <section class="section" id="samples" aria-labelledby="samples-title">
         <div class="section-heading">
           <div>
-            <p class="kicker">PRE-GENERATED SAMPLES</p>
-            <h2 id="samples-title">秘密文の往復</h2>
+            <p class="kicker">FIXED TEST CASES</p>
+            <h2 id="samples-title">暗号化と復元の確認</h2>
           </div>
-          <p>公開用の架空データを、現在のcodecで事前に処理した結果です。</p>
+          <p>
+            実際の秘密ではなく、5種類の架空の固定文を暗号化し、
+            同じ鍵で元どおり復元できるかを確認したテストです。
+          </p>
         </div>
 
         <div class="tile sample-panel">

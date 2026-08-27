@@ -12,6 +12,8 @@ from lsteg.model.errors import InvalidModelManifestError
 
 MODEL_MANIFEST_SCHEMA_VERSION = 1
 NUMERIC_POLICY = "cuda-float16-same-runtime-device-v1"
+GPTQ_NUMERIC_POLICY = "cuda-gptq-int4-same-runtime-device-v1"
+SUPPORTED_NUMERIC_POLICIES = frozenset({NUMERIC_POLICY, GPTQ_NUMERIC_POLICY})
 
 _ARTIFACT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*")
 _REVISION = re.compile(r"[0-9a-f]{40}")
@@ -76,7 +78,7 @@ class ModelManifest:
             raise InvalidModelManifestError("model dtype must be float16")
         if self.device != "cuda:0":
             raise InvalidModelManifestError("model device must be cuda:0")
-        if self.numeric_policy != NUMERIC_POLICY:
+        if self.numeric_policy not in SUPPORTED_NUMERIC_POLICIES:
             raise InvalidModelManifestError(f"unsupported numeric policy: {self.numeric_policy}")
         if isinstance(self.max_context_tokens, bool) or not isinstance(
             self.max_context_tokens, int

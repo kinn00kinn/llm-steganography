@@ -29,7 +29,8 @@ function formatNumber(value) {
 function statusLabel(status) {
   return {
     completed: "完了",
-    next: "次に実装",
+    next: "次に検証",
+    research: "先行試作",
     planned: "予定",
   }[status] ?? status;
 }
@@ -98,7 +99,7 @@ function renderPhaseDetail(phase) {
   const summary = createElement("p", "phase-summary", phase.summary);
   const criterion = createElement("div", "criterion");
   criterion.append(
-    createElement("small", "", "完了条件"),
+    createElement("small", "", "完了条件（満たすまで完了扱いにしません）"),
     createElement("p", "", phase.exit_criterion),
   );
 
@@ -116,14 +117,14 @@ function renderPhaseDetail(phase) {
 
   if (phase.artifacts.length > 0 || phase.pull_request_url || phase.commit_url) {
     const source = createElement("div", "source-block");
-    source.append(createElement("h4", "", "SOURCE"));
+    source.append(createElement("h4", "", "実装・テストの根拠"));
     const links = createElement("div", "source-links");
 
     phase.artifacts.forEach((artifact) => {
       links.append(createExternalLink(`${artifact.label} ↗`, artifact.url));
     });
     if (phase.pull_request_url) {
-      links.append(createExternalLink("Pull Request ↗", phase.pull_request_url));
+      links.append(createExternalLink("Pull Request（変更の審査） ↗", phase.pull_request_url));
     }
     if (phase.commit_url) {
       links.append(createExternalLink(`${phase.commit.slice(0, 7)} ↗`, phase.commit_url));
@@ -135,7 +136,7 @@ function renderPhaseDetail(phase) {
       createElement(
         "p",
         "phase-empty",
-        "実装・テスト・検証結果が揃うまで、このフェーズを完了にはしません。",
+        "実装・テスト・検証結果はまだありません。",
       ),
     );
   }
@@ -185,9 +186,15 @@ function renderSample(sample) {
 
   const metrics = createElement("dl", "sample-metrics");
   const metricValues = [
-    ["暗号", sample.secure_metrics.algorithm],
-    ["元データ", `${formatNumber(sample.metrics.raw_bytes)} bytes`],
-    ["暗号化後", `${formatNumber(sample.secure_metrics.frame_bits)} bits`],
+    ["暗号方式", sample.secure_metrics.algorithm],
+    [
+      "秘密文の大きさ",
+      `${formatNumber(sample.metrics.input_code_points)}文字 / ${formatNumber(sample.metrics.raw_bytes)} bytes`,
+    ],
+    [
+      "暗号化後の大きさ",
+      `${formatNumber(sample.secure_metrics.frame_bytes)} bytes（固定の付加分 ${formatNumber(sample.secure_metrics.overhead_bytes)} bytes）`,
+    ],
   ];
   metricValues.forEach(([label, value]) => {
     const item = createElement("div", "");
@@ -196,6 +203,11 @@ function renderSample(sample) {
   });
 
   detail.replaceChildren(header, flow);
+
+  detail.insertBefore(
+    createElement("p", "sample-description", sample.description),
+    flow,
+  );
 
   if (sample.normalization_changed) {
     const note = createElement("div", "sample-note");
@@ -213,7 +225,7 @@ function renderSample(sample) {
     createElement(
       "summary",
       "",
-      `技術情報：暗号化前のinner frameを表示（${sample.compression}）`,
+      `開発者向け：暗号化前の内部フレーム（圧縮方式 ${sample.compression}）`,
     ),
     createElement("code", "", sample.frame_hex),
   );
@@ -224,30 +236,52 @@ function renderComparison(comparison) {
   const container = document.querySelector("#comparison");
   if (!container) return;
 
-  if (comparison.status === "available") {
+  if (comparison.status === "validated") {
     container.classList.remove("pending-card");
     const pill = createElement("span", "status-pill completed", "検証済み");
-    const title = createElement("h3", "", "自然な文章に秘密を隠せる");
-    const desc = createElement("p", "", "LLMの確率分布を利用し、指定したプロンプトから極めて自然な日本語テキストにデータを埋め込んでいます。");
+    const title = createElement("h3", "", comparison.title);
+    const desc = createElement("p", "", comparison.reason);
     
     const view = createElement("div", "comparison-view");
     
     const control = createElement("div", "comparison-box");
-    control.append(createElement("h4", "", "通常の出力（Control）"), createElement("p", "", comparison.control_text));
+    control.append(
+      createElement("h4", "", "通常生成（秘密なし）"),
+      createElement("p", "", comparison.control_text),
+    );
     
     const stego = createElement("div", "comparison-box");
-    stego.append(createElement("h4", "", "データ埋め込み（Stego）"), createElement("p", "", comparison.stego_text));
+    stego.append(
+      createElement("h4", "", "埋め込み生成（秘密あり）"),
+      createElement("p", "", comparison.stego_text),
+    );
     
     view.append(control, stego);
     container.replaceChildren(pill, title, desc, view);
+    return;
   }
+
+  container.classList.add("pending-card");
+  const requirements = createElement("div", "future-comparison");
+  comparison.required_evidence.forEach((item) =>
+    requirements.append(createElement("span", "", item)),
+  );
+  container.replaceChildren(
+    createElement("span", "status-pill research", "実モデル検証待ち"),
+    createElement("h3", "", comparison.title),
+    createElement("p", "", comparison.reason),
+    requirements,
+  );
 }
 
 function render(resultDocument) {
   state.selectedPhase = resultDocument.project.last_completed_phase;
   renderOverview(resultDocument);
   renderPhaseLists(resultDocument.phases);
-  renderPhaseDetail(resultDocument.phases[state.selectedPhase]);
+  const selectedPhase = resultDocument.phases.find(
+    (phase) => phase.id === state.selectedPhase,
+  );
+  renderPhaseDetail(selectedPhase);
   renderSampleList(resultDocument.samples);
   renderSample(resultDocument.samples[state.selectedSample]);
   renderComparison(resultDocument.comparison);

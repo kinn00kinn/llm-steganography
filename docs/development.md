@@ -118,3 +118,53 @@ PyTorchは公式CUDA 13.0 index、その他のpackageはPyPIから解決する�
 2026-08-14 時点で、system Python 3.12.10 と uv 0.11.32 が利用可能。pyenv は未導入。
 本 repository は uv だけでセットアップできるため、global な PATH や Python installation
 を変更せずに作業を開始できる。
+
+## 8. Phase 6.5 / 7 GPU verification
+
+固定Qwen artifactを取得済みのRTX 4060環境では、まず実装済みfrequency policyの
+容量を直接測定する。raw LM entropyだけをGO/NO-GO判定に使わない。
+
+```powershell
+uv run --extra model python scripts/probe_channel_capacity.py --local-files-only --samples 100
+```
+
+その後、通常CIとは分けて以下を実行する。
+
+```powershell
+$env:LSTEG_RUN_MODEL_TESTS = "1"
+uv run --extra model pytest tests/steg/test_tokenizer_transport.py -v
+```
+
+このtestは、top-k候補のUnicode transport、canonical coded stream、arbitrary-byte
+channelの順に確認する。Qwen3のcontrol token `(151643, 151644, 151645)` はactive alphabetから
+除外する。payloadがsettleする前のEOSによるearly stopは成功扱いにしない。
+
+shared-key secure payloadまで同一processで確認する場合:
+
+```powershell
+uv run steg keygen --output shared.key
+uv run --extra model python scripts/demo_e2e_steg.py --key-file shared.key
+```
+
+`shared.key`、secret plaintext、derived key bytesはbenchmark/logへ出力しない。
+
+## 9. Japanese-prose LoRA research environment
+
+LoRA/QLoRA packages are optional research tooling and are deliberately not added to the normal
+`model` extra or `uv.lock`.  This prevents Windows-specific bitsandbytes wheels from affecting
+the inference/test environment.  Keep using `uv`, but install the pinned training requirements
+into the already-synchronized model virtual environment:
+
+```powershell
+uv sync --extra model
+uv pip install --python .venv\Scripts\python.exe -r requirements-training.txt
+.venv\Scripts\python.exe scripts/probe_lora_training_stack.py --backward-smoke
+```
+
+The backward smoke is required before a long run.  It loads the pinned Qwen3-1.7B artifact in
+NF4, injects the configured LoRA, runs completion-only CE plus the sparse base-model KL term, and
+checks that trainable gradients are finite.
+
+Teacher JSONL and all adapter/model outputs are generated under ignored `data/training/` and
+`artifacts/` paths.  Do not commit generated teacher prose, adapters, merged weights, or evaluation
+outputs.  Commit only versioned recipes, filtering/training/evaluation code, and synthetic tests.

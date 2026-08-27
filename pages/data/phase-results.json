@@ -4,8 +4,8 @@
     "name": "llm-steganography",
     "repository": "kinn00kinn/llm-steganography",
     "repository_url": "https://github.com/kinn00kinn/llm-steganography",
-    "last_completed_phase": 4,
-    "next_phase": 5
+    "last_completed_phase": "5B",
+    "next_phase": "5C"
   },
   "publication": {
     "mode": "static_pre_generated_samples",
@@ -14,7 +14,7 @@
     "contains_real_secrets": false
   },
   "summary": {
-    "completed_phases": 5,
+    "completed_phases": 7,
     "phase_one_tests": 48,
     "seeded_round_trips": 1000,
     "secure_round_trips": 500,
@@ -295,61 +295,208 @@
     },
     {
       "id": "5A",
-      "name": "Cover entropy probe (Phase 5A)",
+      "name": "カバー文の容量計測",
       "status": "completed",
-      "summary": "15サンプルの実測で初期設定のp10は173.3 bitsと判明。",
-      "exit_criterion": "p10 capacityが要求水準を満たせるか判定する基準を作る。",
-      "evidence": [],
-      "artifacts": []
+      "summary": "15サンプルの初期計測で、下位10%点の容量は173.3 bitsと判明。",
+      "exit_criterion": "容量分布を計測し、要求水準を判定できる基準を作る。",
+      "evidence": [
+        {
+          "label": "計測サンプル",
+          "value": "15"
+        },
+        {
+          "label": "下位10%点の容量",
+          "value": "173.3 bits"
+        },
+        {
+          "label": "計測した値",
+          "value": "LLMの生のエントロピー"
+        },
+        {
+          "label": "注意",
+          "value": "実際の埋め込み容量ではない"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "容量計測スクリプト",
+          "path": "scripts/probe_entropy.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/d2d680668e4840c6c7405790c53e742180ed142d/scripts/probe_entropy.py"
+        },
+        {
+          "label": "固定モデル設定",
+          "path": "config/models/qwen3-1.7b-debug.json",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/d2d680668e4840c6c7405790c53e742180ed142d/config/models/qwen3-1.7b-debug.json"
+        }
+      ],
+      "commit": "d2d680668e4840c6c7405790c53e742180ed142d",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/d2d680668e4840c6c7405790c53e742180ed142d",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/9"
     },
     {
       "id": "5B",
-      "name": "Prompt/T/model sweep (Phase 5B)",
+      "name": "プロンプト・生成設定の探索",
       "status": "completed",
-      "summary": "架空のニュース記事プロンプトによりp10が435.3 bitsへ大幅改善。",
-      "exit_criterion": "自然さを損なわずにキャパシティを最大化できる設定を確定する。",
-      "evidence": [],
-      "artifacts": []
+      "summary": "生のLLMエントロピーでは、ニュース形式の下位10%点が435.3 bitsへ改善。実際の埋め込み容量は再計測が必要。",
+      "exit_criterion": "比較した設定の中から、次の実チャネル計測に使う候補を選ぶ。",
+      "evidence": [
+        {
+          "label": "初期の下位10%点",
+          "value": "173.3 bits"
+        },
+        {
+          "label": "最良候補の下位10%点",
+          "value": "435.3 bits"
+        },
+        {
+          "label": "計測した値",
+          "value": "LLMの生のエントロピー"
+        },
+        {
+          "label": "次の検証",
+          "value": "整数化後の実チャネル容量"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "容量計測スクリプト",
+          "path": "scripts/probe_entropy.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/d2d680668e4840c6c7405790c53e742180ed142d/scripts/probe_entropy.py"
+        },
+        {
+          "label": "比較デモ",
+          "path": "scripts/demo_e2e_steg.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/d2d680668e4840c6c7405790c53e742180ed142d/scripts/demo_e2e_steg.py"
+        },
+        {
+          "label": "計測ベースライン",
+          "path": "config/models/qwen3-1.7b-debug-baseline.json",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/d2d680668e4840c6c7405790c53e742180ed142d/config/models/qwen3-1.7b-debug-baseline.json"
+        }
+      ],
+      "commit": "d2d680668e4840c6c7405790c53e742180ed142d",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/d2d680668e4840c6c7405790c53e742180ed142d",
+      "pull_request_url": "https://github.com/kinn00kinn/llm-steganography/pull/9"
     },
     {
       "id": "5C",
-      "name": "Secret LM compression (Phase 5C)",
-      "status": "planned",
-      "summary": "秘密文のLLMによるlossless圧縮符号長を実測。",
-      "exit_criterion": "100文字が数百bitまで圧縮可能か検証する。",
+      "name": "秘密文のLLM圧縮",
+      "status": "next",
+      "summary": "100文字の秘密文を、復元可能なままどこまで小さくできるか計測する。",
+      "exit_criterion": "代表的な100文字の合成秘密文100件の符号長分布を確定する。",
       "evidence": [],
       "artifacts": []
     },
     {
       "id": "5D",
-      "name": "End-to-end budget (Phase 5D)",
+      "name": "500文字に収まるかの容量判定",
       "status": "planned",
-      "summary": "p90(secret+crypto) < p10(cover capacity) を判定。",
-      "exit_criterion": "500文字GO/NO-GOを最終決定する。",
+      "summary": "秘密文・暗号化・カバー文の実測値をまとめて比較する。",
+      "exit_criterion": "500文字目標を維持できるかGO/NO-GOを決定する。",
       "evidence": [],
       "artifacts": []
     },
     {
       "id": 6,
-      "name": "1-bit/token spike",
-      "status": "planned",
-      "summary": "process をまたぐ短い payload の完全復元。",
-      "exit_criterion": "context、tokenizer、prompt、keyed mapping の同期を検証する。",
-      "evidence": [],
-      "artifacts": []
+      "name": "埋め込みチャネルの最小試作",
+      "status": "research",
+      "summary": "mockモデルではビット列の埋め込み・抽出と文字列化を完全往復。実LLMでの同じ検証が残っている。",
+      "exit_criterion": "別processと実LLMで、短いpayloadを文字列経由で100%復元する。",
+      "evidence": [
+        {
+          "label": "mock埋め込み",
+          "value": "完全往復"
+        },
+        {
+          "label": "文字列搬送",
+          "value": "mockで検証済み"
+        },
+        {
+          "label": "候補の鍵付き並べ替え",
+          "value": "HMAC-SHA256 v1"
+        },
+        {
+          "label": "実LLM/GPU",
+          "value": "未検証 / exit criteria未達"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "埋め込みエンジン",
+          "path": "src/lsteg/steg/engine.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/src/lsteg/steg/engine.py"
+        },
+        {
+          "label": "鍵付き候補対応",
+          "path": "src/lsteg/steg/mapping.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/src/lsteg/steg/mapping.py"
+        },
+        {
+          "label": "エンジン試験",
+          "path": "tests/steg/test_engine.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/tests/steg/test_engine.py"
+        },
+        {
+          "label": "搬送不変性試験",
+          "path": "tests/steg/test_tokenizer_transport.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/tests/steg/test_tokenizer_transport.py"
+        }
+      ],
+      "commit": "9faf27e3b22210a32381e73243d713fe79ab6680",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/9faf27e3b22210a32381e73243d713fe79ab6680"
     },
     {
       "id": 7,
-      "name": "LLM + Range Coding",
-      "status": "planned",
-      "summary": "deterministic integer frequenciesとRange Codingを接続。",
-      "exit_criterion": "小さいpayloadをend-to-endで完全復元する。",
-      "evidence": [],
-      "artifacts": []
+      "name": "LLMと整数Range Codingの接続",
+      "status": "research",
+      "summary": "任意bytesチャネル、搬送安全フィルタ、コンパクトAEADを先行実装。実モデル試験と長さの自己復元は未完了。",
+      "exit_criterion": "実LLMの決定的整数頻度で、暗号化payloadを長さの別途共有なしに完全復元する。",
+      "evidence": [
+        {
+          "label": "モデル非依存試験",
+          "value": "385 passed"
+        },
+        {
+          "label": "任意bytes",
+          "value": "mockで完全往復"
+        },
+        {
+          "label": "GPU/実モデル試験",
+          "value": "8 skipped"
+        },
+        {
+          "label": "payload長の自己復元",
+          "value": "未実装"
+        }
+      ],
+      "artifacts": [
+        {
+          "label": "任意bytesチャネル",
+          "path": "src/lsteg/steg/engine.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/src/lsteg/steg/engine.py"
+        },
+        {
+          "label": "搬送安全フィルタ",
+          "path": "src/lsteg/steg/transport.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/src/lsteg/steg/transport.py"
+        },
+        {
+          "label": "コンパクト認証付き暗号",
+          "path": "src/lsteg/payload/compact_crypto.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/src/lsteg/payload/compact_crypto.py"
+        },
+        {
+          "label": "統合リリースゲート",
+          "path": "tests/steg/test_release_gate.py",
+          "url": "https://github.com/kinn00kinn/llm-steganography/blob/9faf27e3b22210a32381e73243d713fe79ab6680/tests/steg/test_release_gate.py"
+        }
+      ],
+      "commit": "9faf27e3b22210a32381e73243d713fe79ab6680",
+      "commit_url": "https://github.com/kinn00kinn/llm-steganography/commit/9faf27e3b22210a32381e73243d713fe79ab6680"
     },
     {
       "id": 8,
-      "name": "100文字試験",
+      "name": "100文字の完全復元試験",
       "status": "planned",
       "summary": "cover上限を1000文字から段階的に短縮。",
       "exit_criterion": "100秘密文字のreliable round-tripを達成する。",
@@ -358,7 +505,7 @@
     },
     {
       "id": 9,
-      "name": "自然さ・capacity",
+      "name": "文章の自然さと容量の改善",
       "status": "planned",
       "summary": "control/stegoを同じmanifestで比較。",
       "exit_criterion": "reliabilityを保ったまま品質・容量指標を改善する。",
@@ -367,7 +514,7 @@
     },
     {
       "id": 10,
-      "name": "再現性hardening",
+      "name": "再起動後も復元できる再現性",
       "status": "planned",
       "summary": "process、再起動、device差を段階的に検証。",
       "exit_criterion": "再起動後の互換とartifact mismatch検出を保証する。",
@@ -376,7 +523,7 @@
     },
     {
       "id": 11,
-      "name": "Sample export / viewer",
+      "name": "公開サンプルと比較画面",
       "status": "planned",
       "summary": "sanitized sample schemaと比較viewerを安定化。",
       "exit_criterion": "公開sampleがschema/redaction gateを通過する。",
@@ -385,7 +532,7 @@
     },
     {
       "id": 12,
-      "name": "Pages / deploy",
+      "name": "GitHub Pagesとローカル配布",
       "status": "planned",
       "summary": "生成済みsampleをPagesで継続公開。",
       "exit_criterion": "固定manifestのsample siteとlocal runtimeを個別検証する。",
@@ -396,7 +543,8 @@
   "samples": [
     {
       "id": "raw-short",
-      "label": "短い秘密文",
+      "label": "最小の日本語",
+      "description": "2文字の短い秘密文で、暗号化と復元の基本動作を確認します。",
       "synthetic_secret": "秘密",
       "normalized_text": "秘密",
       "restored_text": "秘密",
@@ -426,7 +574,8 @@
     },
     {
       "id": "nfc-normalization",
-      "label": "NFC正規化",
+      "label": "文字表現の統一",
+      "description": "見た目が同じでも内部表現が異なる文字を、NFC形式に統一して復元します。",
       "synthetic_secret": "éを含む公開用サンプル",
       "normalized_text": "éを含む公開用サンプル",
       "restored_text": "éを含む公開用サンプル",
@@ -456,7 +605,8 @@
     },
     {
       "id": "japanese-note",
-      "label": "日本語メモ",
+      "label": "一般的な日本語文",
+      "description": "短いメモ程度の自然な日本語文を、一文字も変えずに復元します。",
       "synthetic_secret": "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
       "normalized_text": "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
       "restored_text": "今日は研究室に早く着いたので、窓を開けて静かな時間に実験ノートを整理した。",
@@ -486,7 +636,8 @@
     },
     {
       "id": "max-repeat",
-      "label": "100文字の境界",
+      "label": "100文字の上限",
+      "description": "仕様上の最大文字数である100文字ちょうどを扱えることを確認します。",
       "synthetic_secret": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
       "normalized_text": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
       "restored_text": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
@@ -516,7 +667,8 @@
     },
     {
       "id": "max-utf8",
-      "label": "400 UTF-8 bytesの境界",
+      "label": "400バイトの上限",
+      "description": "1文字が4バイトの絵文字を100個使い、UTF-8の最大400バイトを確認します。",
       "synthetic_secret": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
       "normalized_text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
       "restored_text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
@@ -546,9 +698,13 @@
     }
   ],
   "comparison": {
-    "status": "available",
-    "available_from_phase": 5,
-    "control_text": "架空のニュース記事：\n本日午後、東京都内のある病院で、2つの外科医が患者に対して画期的な手術を成功させたと発表しました。この手術は、最新のロボット技術を活用したもので、患者への負担を大幅に軽減できると期待されています。病院関係者によると、患者の術後の経過は極めて良好で、早ければ来週にも退院できる見込みとのことです。今後は他の医療機関への技術提供も視野に入れ、さらなる医療の質の向上を目指すとしています。",
-    "stego_text": "架空のニュース記事：\n本日午後、東京都内のある病院で、2つの外科医が患者に対して医療行為を実施したが、実際には当該患者に医療行為を実施したが、患者の家庭教師・親権代理・介護者（現職）の一人が、クリニックの薬の処方や医療行為の実施について、医療機関の医師が秘密の内容を共有したがった。医療機関は、この情報の発覚後、患者の保護者に迅速に対応して、医学的および法的な理由の下で、患者に手術が中止された。また、医師は、法的責任については、自己終了するとして、状況を落ち着かせるため、病院の各医師にこの情報を正式に告知した。医療機関は、医師による秘密の共有のことを発覚したが、現在、処方笺の記録を確認し、医師の職業的倫理に関する問題としての対応調査を行うことになりました。\n分析"
+    "status": "not_validated",
+    "title": "文章への埋め込み品質はまだ公開結果にできません",
+    "reason": "先行試作はありますが、実LLMでの完全復元、生成条件の固定、容量・自然さの比較がそろっていないためです。",
+    "required_evidence": [
+      "同じ公開プロトコルでの秘密文100%復元",
+      "モデル・プロンプト・実行環境の固定",
+      "通常生成と埋め込み生成の容量・品質比較"
+    ]
   }
 }
